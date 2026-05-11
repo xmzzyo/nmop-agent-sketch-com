@@ -9,19 +9,19 @@ number:
 date:
 consensus: true
 v: 3
-area: Operations and Management Area
-workgroup: Network Management Operations
+area: "Operations and Management"
+workgroup: "Network Management Operations"
 keyword:
  - Agent
  - Sketch
  - Network Management
 venue:
-  group: nmop
-  type: Working Group
-  mail: WG@example.com
-  arch: https://example.com/WG
-  github: USER/REPO
-  latest: https://example.com/LATEST
+  group: "Network Management Operations"
+  type: "Working Group"
+  mail: "nmop@ietf.org"
+  arch: "https://mailarchive.ietf.org/arch/browse/nmop/"
+  github: "xmzzyo/nmop-agent-sketch-com"
+  latest: "https://xmzzyo.github.io/nmop-agent-sketch-com/draft-cui-nmop-agent-sketch-com.html"
 
 author:
 - role:  # remove if not true
