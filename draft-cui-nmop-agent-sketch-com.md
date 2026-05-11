@@ -30,13 +30,13 @@ date:
 consensus: true
 v: 3
 area: Operations and Management Area
-workgroup: NMOP
+workgroup: Network Management Operations
 keyword:
  - Agent
- - Skecth
+ - Sketch
  - Network Management
 venue:
-  group: Network Management
+  group: nmop
   type: Working Group
   mail: WG@example.com
   arch: https://example.com/WG
@@ -80,14 +80,14 @@ author:
   email: zhanglei@zgclab.edu.cn
 
 normative:
-  [RFC2119]:
-  [RFC7252]:
-  [RFC7641]:
-  [RFC7950]:
-  [RFC7959]:
-  [RFC8174]:
-  [RFC8949]:
-  [RFC9147]:
+  RFC2119:
+  RFC7252:
+  RFC7641:
+  RFC7950:
+  RFC7959:
+  RFC8174:
+  RFC8949:
+  RFC9147:
 
 informative:
   RFC6241:
@@ -287,7 +287,7 @@ The framework MUST notify the sending agent when a command cannot be delivered a
 
 The framework MUST support a compact representation of network state that can be exchanged between agents with substantially lower bandwidth than raw telemetry data.
 
-The compact representation MUST provide provable, configurable error bounds (ε, δ) on the accuracy of estimates derived from it.
+The compact representation MUST provide provable, configurable error bounds (epsilon, delta) on the accuracy of estimates derived from it.
 
 The compact representation MUST support merging of instances from multiple sources to produce a combined representation without access to the underlying raw data.
 
@@ -305,7 +305,7 @@ The bindings MUST cover at minimum: tool invocation (MCP tools/call), resource s
 
 ###  Quantifiable Accuracy (REQ-5)
 
-The framework MUST ensure that the error bounds (ε, δ) of Sketch estimates are communicated alongside the estimates themselves, so that agents can incorporate uncertainty into their reasoning and decision-making.
+The framework MUST ensure that the error bounds (epsilon, delta) of Sketch estimates are communicated alongside the estimates themselves, so that agents can incorporate uncertainty into their reasoning and decision-making.
 
 The framework SHOULD define how error bounds propagate through Sketch merge operations across multiple domains or devices.
 
@@ -445,13 +445,13 @@ The appropriate Sketch type depends on the nature of the network state being rep
 
 | NetOps Task               | Query Type                                    | Recommended Sketch     | Key Property Used                                    |
 | ------------------------- | --------------------------------------------- | ---------------------- | ---------------------------------------------------- |
-| Flow rate analysis        | "What is the traffic rate from prefix X?"     | Count-Min Sketch (CMS) | Frequency estimation with ε-δ bounds                 |
+| Flow rate analysis        | "What is the traffic rate from prefix X?"     | Count-Min Sketch (CMS) | Frequency estimation with epsilon-delta bounds       |
 | Source diversity analysis | "How many unique source IPs are there?"       | HyperLogLog (HLL)      | Cardinality estimation, cross-domain mergeable       |
 | Latency / jitter analysis | "What is the p99 latency on path P?"          | DDSketch               | Quantile estimation with relative error bounds       |
 | Configuration consistency | "Is device A's config consistent with peers?" | MinHash                | Set similarity estimation (Jaccard index)            |
 | Affected flow marking     | "Is flow F affected by fault X?"              | Bloom Filter           | Set membership with configurable false positive rate |
 
-Sketch parameters SHOULD be configured based on the expected observation cardinality and the desired accuracy level (ε, δ).
+Sketch parameters SHOULD be configured based on the expected observation cardinality and the desired accuracy level (epsilon, delta).
 
 ###  Incremental Transmission: XOR-Delta
 
@@ -467,9 +467,9 @@ Under typical steady-state conditions, incremental deltas are expected to repres
 
 ###  Error Bound Propagation
 
-When Sketch structures from multiple sources are merged, the error bounds of the merged structure can be computed analytically for most Sketch types. For example, when two Count-Min Sketches with the same dimensions (w, d) and error parameters (ε, δ) are merged via element-wise maximum, the merged structure retains the same error parameters.
+When Sketch structures from multiple sources are merged, the error bounds of the merged structure can be computed analytically for most Sketch types. For example, when two Count-Min Sketches with the same dimensions (w, d) and error parameters (epsilon, delta) are merged via element-wise maximum, the merged structure retains the same error parameters.
 
-The framework requires that error bound parameters (ε, δ) be included in all Sketch messages so that receiving agents can propagate them correctly. Implementations SHOULD validate that Sketch structures being merged have compatible parameters before performing the merge operation.
+The framework requires that error bound parameters (epsilon, delta) be included in all Sketch messages so that receiving agents can propagate them correctly. Implementations SHOULD validate that Sketch structures being merged have compatible parameters before performing the merge operation.
 
 ---
 
@@ -603,7 +603,7 @@ A companion document defines a YANG module `ietf-sketch-node` modeling Sketch ty
 
 ###  Sketch Parameter Selection Guidelines
 
-- **Count-Min Sketch:** Set width `w = ceil(e / ε)` and depth `d = ceil(ln(1/δ))` where ε is the desired maximum relative frequency error and δ is the desired failure probability.
+- **Count-Min Sketch:** Set width `w = ceil(e / epsilon)` and depth `d = ceil(ln(1/delta))` where epsilon is the desired maximum relative frequency error and delta is the desired failure probability.
 - **HyperLogLog:** Relative standard error ≈ 1.04 / √m where m = 2^b is the number of registers. For 2% error, use b = 12 (m = 4096), occupying 1.5 KB with 4-bit registers.
 - **DDSketch:** The relative accuracy parameter α (default: 0.01) determines the maximum relative error on quantile estimates.
 
