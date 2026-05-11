@@ -147,7 +147,6 @@ informative:
     author:
     - name: J.-P. Aumasson
     - name: D. J. Bernstein
-...
 
 --- abstract
 
