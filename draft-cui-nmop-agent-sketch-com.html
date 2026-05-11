@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Greek,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Distributed Sketch and Agent Communication Framework for Network Operations</title>
+<meta content="Yong Cui" name="author">
+<meta content="Mingzhe Xing" name="author">
+<meta content="Lei Zhang" name="author">
+<meta content="
+       This document describes a framework for efficient and reliable communication among AI-driven agents and between agents and network devices in the context of network operations (NetOps). As large language model (LLM)-based agents are increasingly deployed to automate network management tasks — including fault localization, configuration verification, traffic engineering, and attack mitigation — they must exchange large volumes of network state information across multiple administrative domains. Existing protocols are not designed to jointly satisfy the reliability requirements of operational commands and the efficiency requirements of network state dissemination at scale. 
+       This document motivates the need for a new communication framework, defines requirements, and proposes an architecture that combines the Constrained Application Protocol (CoAP) for reliable message delivery with distributed probabilistic data structures (Sketch) for compact, mergeable network state representation. Bindings between CoAP and emerging agent protocols (MCP and A2A) are outlined. Representative use cases, including DDoS detection and mitigation, are described to validate the applicability of the framework. 
+    " name="description">
+<meta content="xml2rfc 3.33.0" name="generator">
+<meta content="Agent" name="keyword">
+<meta content="Sketch" name="keyword">
+<meta content="Network Management" name="keyword">
+<meta content="draft-cui-nmop-agent-sketch-com-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.33.0
+    Python 3.12.13
+    ConfigArgParse 1.7
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.0.2
+    platformdirs 4.9.6
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.7.0
+-->
+<link href="draft-cui-nmop-agent-sketch-com.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1#title {
+  font-size: 32px;
+  line-height: 40px;
+  clear: both;
+}
+h1#title, h1#rfcnum {
+  margin: 1.5em 0 0.2em;
+}
+h1#rfcnum + h1#title {
+  margin: 0.2em 0;
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+}
+#abstract+p code, #abstract+p samp, #abstract+p tt {
+  font-size: 16px;
+  line-height: 0;
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+/* font-family isn't space-separated, but =~ will have to do */
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  border: none;
+  /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+     support flexbox yet.
+  */
+  display: table;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+    }
+  }
+  &.olPercent > dt {
+    float: none;
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+}
+dl:not(.dlNewline) > dt {
+  float: left;
+  margin-right: 2ch;
+  min-width: 8ch;
+}
+dl > dd {
+  margin-bottom: .8em;
+  margin-left: var(--indent) !important; /* stupid element overrides */
+  min-height: 2ex;
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a, a[href].selfRef:hover {
+  text-decoration: none;
+}
+a[href] {
+  color: var(--link-color);
+}
+a[href].selfRef, .iref + a[href].internal {
+  color: var(--text-color);
+}
+a[href]:hover {
+  text-decoration: underline;
+}
+a[href].selfRef:hover {
+  background-color: var(--highlight-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) p {
+    margin: -2px 0;
+    max-height: 0;
+    transition: max-height 2s ease, margin 0.5s ease 0.5s;
+    overflow: hidden;
+  }
+  :is(#status-of-memo, #copyright):hover p,
+  :is(#status-of-memo, #copyright) h2:target ~ p {
+    margin: 0.5em 0;
+    max-height: 500px;
+    overflow: auto;
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+}
+table.right {
+  margin-left: auto;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+table.left {
+  margin-right: auto;
+}
+table .text-left {
+  text-align: left;
+}
+table .text-center {
+  text-align: center;
+}
+table .text-right {
+  text-align: right;
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+table caption {
+  margin: 0;
+  padding: 3px 0 3px 1em;
+}
+table p {
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+}
+@media not print {
+  :hover > a.pilcrow, a.pilcrow:focus {
+    opacity: 1;
+  }
+  a.pilcrow[href]:hover {
+    color: var(--pilcrow-strong);
+    background-color: transparent;
+  }
+}
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses > section {
+    column-count: 2;
+    column-gap: 20px;
+  }
+  #authors-addresses > section > h2 {
+    column-span: all;
+  }
+  /* hack for break-inside: avoid-column */
+  #authors-addresses address {
+    display: inline-block;
+    break-inside: avoid-column;
+  }
+}
+
+/* Comments */
+.rfcEditorRemove p:first-of-type {
+  font-style: italic;
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc nav {
+    font-family: var(--font-title);
+    font-weight: 360;
+    & > ul { margin-bottom: 2em; }
+    & ul {
+      margin: 0 0 0 4px;
+      & :is(p, li) {
+        margin: 2px 0;
+      }
+    }
+  }
+  #toc a.toplink {
+    float: right;
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 2px 0 2px 6px;
+    padding-right: 1em;
+    font-size: 18px;
+    line-height: 24px;
+    min-width: 190px;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+    &::before { /* css hamburger */
+      float: right;
+      position: relative;
+      width: 1em;
+      height: 1px;
+      left: -164px;
+      margin: 8px 0 0 0;
+      background: white none repeat scroll 0 0;
+      box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+      content: "";
+    }
+  }
+  #toc nav {
+    display: none;
+    background-color: var(--background-color);
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+  #toc.active {
+    opacity: 1;
+    & nav { display: block; }
+  }
+  /* Make the collapsed ToC header render white on gray also when it's a link */
+  #toc h2 a,
+  #toc h2 a:is(:link, :focus, :hover),
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+  #toc a.toplink {
+    margin: 2px 0.5em 0;
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 2em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+  #toc a.toplink {
+    margin: 8px 0.5em 0;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg :is([stroke="black"], [stroke^="#000"]) {
+  stroke: var(--text-color);
+}
+svg :is([stroke="white"], [stroke^="#fff"]) {
+  stroke: var(--background-color);
+}
+svg :is([fill="black"], [fill^="#000"], :not([fill])) {
+  fill: var(--text-color);
+}
+svg :is([fill="white"], [fill^="#fff"]) {
+  fill: var(--background-color);
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">agent-sketch-com</td>
+<td class="right">May 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Cui, et al.</td>
+<td class="center">Expires 12 November 2026</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Network Management Operations</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-cui-nmop-agent-sketch-com-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-05-11" class="published">11 May 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Informational</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2026-11-12">12 November 2026</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">Y. Cui</div>
+<div class="org">Tsinghua University</div>
+</div>
+<div class="author">
+      <div class="author-name">M. Xing</div>
+<div class="org">Zhongguancun Laboratory</div>
+</div>
+<div class="author">
+      <div class="author-name">L. Zhang</div>
+<div class="org">Zhongguancun Laboratory</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Distributed Sketch and Agent Communication Framework for Network Operations</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document describes a framework for efficient and reliable communication among AI-driven agents and between agents and network devices in the context of network operations (NetOps). As large language model (LLM)-based agents are increasingly deployed to automate network management tasks — including fault localization, configuration verification, traffic engineering, and attack mitigation — they must exchange large volumes of network state information across multiple administrative domains. Existing protocols are not designed to jointly satisfy the reliability requirements of operational commands and the efficiency requirements of network state dissemination at scale.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">This document motivates the need for a new communication framework, defines requirements, and proposes an architecture that combines the Constrained Application Protocol (CoAP) for reliable message delivery with distributed probabilistic data structures (Sketch) for compact, mergeable network state representation. Bindings between CoAP and emerging agent protocols (MCP and A2A) are outlined. Representative use cases, including DDoS detection and mitigation, are described to validate the applicability of the framework.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        The latest revision of this draft can be found at <span><a href="https://example.com/LATEST">https://example.com/LATEST</a></span>.
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-cui-nmop-agent-sketch-com/">https://datatracker.ietf.org/doc/draft-cui-nmop-agent-sketch-com/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">
+        Discussion of this document takes place on the
+        nmop Working Group mailing list (<span><a href="mailto:WG@example.com">mailto:WG@example.com</a></span>),
+        which is archived at <span><a href="https://example.com/WG">https://example.com/WG</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+<p id="section-note.1-4">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/USER/REPO">https://github.com/USER/REPO</a></span>.<a href="#section-note.1-4" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 12 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.1">
+                <p id="section-toc.1-1.1.2.1.1" class="keepWithNext"><a href="#section-1.1" class="auto internal xref">1.1</a>.  <a href="#name-context-and-motivation" class="internal xref">Context and Motivation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.2">
+                <p id="section-toc.1-1.1.2.2.1" class="keepWithNext"><a href="#section-1.2" class="auto internal xref">1.2</a>.  <a href="#name-the-communication-problem" class="internal xref">The Communication Problem</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.3">
+                <p id="section-toc.1-1.1.2.3.1" class="keepWithNext"><a href="#section-1.3" class="auto internal xref">1.3</a>.  <a href="#name-proposed-approach-coap-and-" class="internal xref">Proposed Approach: CoAP and Sketch</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-problem-statement" class="internal xref">Problem Statement</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
+                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-the-reliability-requirement" class="internal xref">The Reliability Requirement</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-the-efficiency-requirement" class="internal xref">The Efficiency Requirement</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3">
+                <p id="section-toc.1-1.3.2.3.1"><a href="#section-3.3" class="auto internal xref">3.3</a>.  <a href="#name-the-gap-in-existing-solutio" class="internal xref">The Gap in Existing Solutions</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-requirements" class="internal xref">Requirements</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-reliable-command-delivery-r" class="internal xref">Reliable Command Delivery (REQ-1)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-efficient-network-state-rep" class="internal xref">Efficient Network State Representation (REQ-2)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-incremental-state-synchroni" class="internal xref">Incremental State Synchronization (REQ-3)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-agent-protocol-integration-" class="internal xref">Agent Protocol Integration (REQ-4)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.5">
+                <p id="section-toc.1-1.4.2.5.1"><a href="#section-4.5" class="auto internal xref">4.5</a>.  <a href="#name-quantifiable-accuracy-req-5" class="internal xref">Quantifiable Accuracy (REQ-5)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.6">
+                <p id="section-toc.1-1.4.2.6.1"><a href="#section-4.6" class="auto internal xref">4.6</a>.  <a href="#name-cross-domain-privacy-req-6" class="internal xref">Cross-Domain Privacy (REQ-6)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.7">
+                <p id="section-toc.1-1.4.2.7.1"><a href="#section-4.7" class="auto internal xref">4.7</a>.  <a href="#name-incremental-deployability-r" class="internal xref">Incremental Deployability (REQ-7)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.8">
+                <p id="section-toc.1-1.4.2.8.1"><a href="#section-4.8" class="auto internal xref">4.8</a>.  <a href="#name-interoperability-with-exist" class="internal xref">Interoperability with Existing Management Infrastructure (REQ-8)</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-framework-architecture" class="internal xref">Framework Architecture</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-overview" class="internal xref">Overview</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-agent-roles-and-responsibil" class="internal xref">Agent Roles and Responsibilities</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-communication-relationships" class="internal xref">Communication Relationships</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-coap-based-reliable-communi" class="internal xref">CoAP-Based Reliable Communication</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-coap-profile-for-this-frame" class="internal xref">CoAP Profile for This Framework</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-coap-resource-tree" class="internal xref">CoAP Resource Tree</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-reliability-mechanisms" class="internal xref">Reliability Mechanisms</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-sketch-based-efficient-stat" class="internal xref">Sketch-Based Efficient State Representation</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-sketch-as-inter-agent-state" class="internal xref">Sketch as Inter-Agent State Currency</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-sketch-type-selection" class="internal xref">Sketch Type Selection</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3">
+                <p id="section-toc.1-1.7.2.3.1"><a href="#section-7.3" class="auto internal xref">7.3</a>.  <a href="#name-incremental-transmission-xo" class="internal xref">Incremental Transmission: XOR-Delta</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4">
+                <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-error-bound-propagation" class="internal xref">Error Bound Propagation</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-agent-protocol-bindings" class="internal xref">Agent Protocol Bindings</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.1">
+                <p id="section-toc.1-1.8.2.1.1"><a href="#section-8.1" class="auto internal xref">8.1</a>.  <a href="#name-binding-design-principles" class="internal xref">Binding Design Principles</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.2">
+                <p id="section-toc.1-1.8.2.2.1"><a href="#section-8.2" class="auto internal xref">8.2</a>.  <a href="#name-mcp-over-coap-binding" class="internal xref">MCP-over-CoAP Binding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.3">
+                <p id="section-toc.1-1.8.2.3.1"><a href="#section-8.3" class="auto internal xref">8.3</a>.  <a href="#name-a2a-over-coap-binding" class="internal xref">A2A-over-CoAP Binding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.4">
+                <p id="section-toc.1-1.8.2.4.1"><a href="#section-8.4" class="auto internal xref">8.4</a>.  <a href="#name-agentcard-coap-extensions" class="internal xref">AgentCard CoAP Extensions</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-use-cases" class="internal xref">Use Cases</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-use-case-1-ddos-detection-a" class="internal xref">Use Case 1: DDoS Detection and Mitigation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-use-case-2-multi-domain-fau" class="internal xref">Use Case 2: Multi-Domain Fault Localization</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-use-case-3-configuration-co" class="internal xref">Use Case 3: Configuration Consistency Verification</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.4">
+                <p id="section-toc.1-1.9.2.4.1"><a href="#section-9.4" class="auto internal xref">9.4</a>.  <a href="#name-use-case-4-traffic-engineer" class="internal xref">Use Case 4: Traffic Engineering Optimization</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-deployment-considerations" class="internal xref">Deployment Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-incremental-deployment-path" class="internal xref">Incremental Deployment Path</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-yang-model-integration" class="internal xref">YANG Model Integration</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-sketch-parameter-selection-" class="internal xref">Sketch Parameter Selection Guidelines</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.1">
+                <p id="section-toc.1-1.11.2.1.1"><a href="#section-11.1" class="auto internal xref">11.1</a>.  <a href="#name-authentication-and-encrypti" class="internal xref">Authentication and Encryption</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.2">
+                <p id="section-toc.1-1.11.2.2.1"><a href="#section-11.2" class="auto internal xref">11.2</a>.  <a href="#name-sketch-integrity" class="internal xref">Sketch Integrity</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.3">
+                <p id="section-toc.1-1.11.2.3.1"><a href="#section-11.3" class="auto internal xref">11.3</a>.  <a href="#name-sketch-poisoning" class="internal xref">Sketch Poisoning</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.4">
+                <p id="section-toc.1-1.11.2.4.1"><a href="#section-11.4" class="auto internal xref">11.4</a>.  <a href="#name-agent-authorization" class="internal xref">Agent Authorization</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.5">
+                <p id="section-toc.1-1.11.2.5.1"><a href="#section-11.5" class="auto internal xref">11.5</a>.  <a href="#name-denial-of-service" class="internal xref">Denial of Service</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1">
+                <p id="section-toc.1-1.13.2.1.1"><a href="#section-13.1" class="auto internal xref">13.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.2">
+                <p id="section-toc.1-1.13.2.2.1"><a href="#section-13.2" class="auto internal xref">13.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
+            <p id="section-toc.1-1.15.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<div id="context-and-motivation">
+<section id="section-1.1">
+        <h3 id="name-context-and-motivation">
+<a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-context-and-motivation" class="section-name selfRef">Context and Motivation</a>
+        </h3>
+<p id="section-1.1-1">The operational complexity of modern networks has grown substantially. Networks now span multiple autonomous systems (ASes), administrative domains, and technology layers. Network management tasks — such as detecting and mitigating distributed denial-of-service (DDoS) attacks, localizing faults across domains, verifying configuration consistency, and optimizing traffic engineering — require the timely collection, synthesis, and reasoning over large amounts of network state.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+<p id="section-1.1-2">Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations (AI-driven NetOps), in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise. The IETF NMOP working group has been chartered to address emerging challenges in network management and operations, including the integration of AI and automation into the management plane. This document is a contribution to that effort.<a href="#section-1.1-2" class="pilcrow">¶</a></p>
+<p id="section-1.1-3">A fundamental architectural insight is that a single LLM agent cannot maintain complete, real-time visibility over a large multi-domain network. The scale of telemetry data, the diversity of device types, and administrative separation between domains each impose hard limits on what any single agent can observe or control. A <strong>multi-agent architecture</strong> is therefore necessary: Orchestration Agents maintain a global view and coordinate responses across domains; Domain Agents aggregate state from devices within their domain; Device Agents (or device-side CoAP servers) maintain local state and execute instructions. This three-tier structure allows each level to operate with appropriate granularity, eliminating the information overload that would result from a flat, fully-connected agent topology.<a href="#section-1.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="the-communication-problem">
+<section id="section-1.2">
+        <h3 id="name-the-communication-problem">
+<a href="#section-1.2" class="section-number selfRef">1.2. </a><a href="#name-the-communication-problem" class="section-name selfRef">The Communication Problem</a>
+        </h3>
+<p id="section-1.2-1">Deploying cooperating agents in a production network introduces a fundamental communication challenge with two conflicting pressures.<a href="#section-1.2-1" class="pilcrow">¶</a></p>
+<p id="section-1.2-2">The first is a <strong>reliability requirement</strong>. Network operations involve consequential actions: changing routing policies, applying access control lists, rate-limiting traffic, rolling back configurations. These actions must be executed with confirmation. An agent that issues a mitigation command to a border router and receives no confirmation cannot know whether the network is protected. Silent delivery failures are operationally dangerous. Commands must be acknowledged, retransmission must be idempotent, and failures must be reported.<a href="#section-1.2-2" class="pilcrow">¶</a></p>
+<p id="section-1.2-3">The second is an <strong>efficiency requirement</strong>. The primary information currency between agents is network state — link utilization, flow statistics, routing tables, interface health, configuration parameters — and the volume of this data is enormous. A single edge router may generate millions of flow records per minute; a domain of hundreds of routers generates billions. Agents do not need raw data: they need actionable summaries — answers to questions such as "Which source prefix is sending the most traffic?" or "How many unique source IPs are observed across this domain?" Moreover, in multi-operator or multi-AS scenarios, raw flow records cannot be shared across administrative boundaries due to privacy, legal, and competitive constraints.<a href="#section-1.2-3" class="pilcrow">¶</a></p>
+<p id="section-1.2-4">Existing protocols do not simultaneously address both requirements. NETCONF/YANG <span>[<a href="#RFC6241" class="cite xref">RFC6241</a>]</span> and gNMI <span>[<a href="#GNMI" class="cite xref">GNMI</a>]</span> provide reliable, schema-driven management but produce verbose, full-fidelity output not suitable for agent-to-agent state exchange. IPFIX <span>[<a href="#RFC7011" class="cite xref">RFC7011</a>]</span> provides efficient flow export but offers no reliability guarantees or agent-interaction semantics. The Model Context Protocol (MCP) <span>[<a href="#MCP" class="cite xref">MCP</a>]</span> and Agent-to-Agent (A2A) protocol <span>[<a href="#A2A" class="cite xref">A2A</a>]</span> provide the right agent-native semantics — tool invocation, task delegation, artifact exchange — but are currently defined over HTTP/SSE, which is ill-suited to constrained network device management planes, and define no mechanism for compressing the network state that agents must exchange.<a href="#section-1.2-4" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Protocol</th>
+              <th class="text-left" rowspan="1" colspan="1">Reliable Delivery</th>
+              <th class="text-left" rowspan="1" colspan="1">Efficient State</th>
+              <th class="text-left" rowspan="1" colspan="1">Agent-Native</th>
+              <th class="text-left" rowspan="1" colspan="1">Assessment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">NETCONF/YANG</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+              <td class="text-left" rowspan="1" colspan="1">No (full XML)</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">Too verbose; no agent semantics</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">gNMI/gRPC</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+              <td class="text-left" rowspan="1" colspan="1">Partial</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">No summary layer; heavy stack</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">IPFIX/NetFlow</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">Partial</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">Export only; no agent interaction</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">MCP (HTTP)</td>
+              <td class="text-left" rowspan="1" colspan="1">Partial</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+              <td class="text-left" rowspan="1" colspan="1">No transport guarantees; no compression</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">A2A (HTTP/SSE)</td>
+              <td class="text-left" rowspan="1" colspan="1">Partial</td>
+              <td class="text-left" rowspan="1" colspan="1">No</td>
+              <td class="text-left" rowspan="1" colspan="1">Yes</td>
+              <td class="text-left" rowspan="1" colspan="1">SSE not suitable for device management planes</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <strong>This framework</strong>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <strong>Yes (CoAP CON)</strong>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <strong>Yes (Sketch)</strong>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <strong>Yes (MCP/A2A bindings)</strong>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <strong>Addresses both requirements</strong>
+</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+<div id="proposed-approach-coap-and-sketch">
+<section id="section-1.3">
+        <h3 id="name-proposed-approach-coap-and-">
+<a href="#section-1.3" class="section-number selfRef">1.3. </a><a href="#name-proposed-approach-coap-and-" class="section-name selfRef">Proposed Approach: CoAP and Sketch</a>
+        </h3>
+<p id="section-1.3-1">This document proposes a framework that resolves the reliability-efficiency tension through a <strong>two-layer communication design</strong>, with each layer addressing one dimension of the problem and the two layers combining cleanly.<a href="#section-1.3-1" class="pilcrow">¶</a></p>
+<p id="section-1.3-2"><strong>The Reliable Layer</strong> is based on the Constrained Application Protocol (CoAP) <span>[<a href="#RFC7252" class="cite xref">RFC7252</a>]</span>. CoAP operates over UDP and provides a reliable subset of HTTP semantics with a compact 4-byte binary header. Its Confirmable (CON) message type implements acknowledged delivery with exponential-backoff retransmission, directly satisfying the reliability requirement for operational commands. CoAP's Non-confirmable (NON) messages and Observe extension <span>[<a href="#RFC7641" class="cite xref">RFC7641</a>]</span> provide loss-tolerant push notifications for high-frequency telemetry streams. DTLS <span>[<a href="#RFC9147" class="cite xref">RFC9147</a>]</span> provides mutual authentication and encryption. CoAP is already widely implemented on network equipment and is the basis of existing IETF management standards such as COMI <span>[<a href="#RFC9254" class="cite xref">RFC9254</a>]</span>, giving the framework both the right transport properties and an established deployment footprint.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
+<p id="section-1.3-3"><strong>The Efficiency Layer</strong> is based on distributed probabilistic data structures — collectively referred to in this document as <em>Sketch</em>. Sketches provide compact, fixed-size representations of streaming network observations with provable bounded-error guarantees. A Count-Min Sketch summarizing per-flow traffic rates across a domain may occupy a few hundred kilobytes, compared to gigabytes of raw flow records. A HyperLogLog estimating the number of unique source IPs occupies 64 bytes regardless of how many distinct addresses are observed. Critically, Sketches support a <strong>merge operation</strong>: structures from multiple devices or domains can be combined into a structure representing the union of all observations, without access to the underlying raw data. This mergeability property enables cross-domain state aggregation and cross-domain sharing without exposing privacy-sensitive information.<a href="#section-1.3-3" class="pilcrow">¶</a></p>
+<p id="section-1.3-4">The two layers are orthogonal and complementary: <strong>CoAP governs how messages are delivered; Sketch governs what they contain.</strong> Neither alone is sufficient — CoAP without Sketch would transmit raw telemetry and fail on efficiency and privacy; Sketch without CoAP would have no mechanism for reliable command delivery. Together, they allow each component to be evolved independently while providing a clean interface that both the network management and AI agent communities can implement.<a href="#section-1.3-4" class="pilcrow">¶</a></p>
+<p id="section-1.3-5">Beyond CoAP and Sketch, the framework defines normative <strong>bindings between CoAP and MCP/A2A</strong>. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings (Section 8) to enable the NMOP working group to standardize a single, interoperable interface.<a href="#section-1.3-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">The following terms are used throughout this document:<a href="#section-2-2" class="pilcrow">¶</a></p>
+<p id="section-2-3"><strong>Agent:</strong> A software entity capable of autonomous reasoning and action in a network management context. An agent may be driven by a large language model (LLM), a rule engine, or a combination of both.<a href="#section-2-3" class="pilcrow">¶</a></p>
+<p id="section-2-4"><strong>Orchestration Agent:</strong> A high-level agent responsible for decomposing complex network management tasks, dispatching sub-tasks to Domain Agents, and synthesizing results into operational decisions. Typically LLM-driven.<a href="#section-2-4" class="pilcrow">¶</a></p>
+<p id="section-2-5"><strong>Domain Agent:</strong> An agent responsible for a specific administrative domain (e.g., an autonomous system or a geographic region). It collects and summarizes network state from devices within its domain and cooperates with other Domain Agents and the Orchestration Agent.<a href="#section-2-5" class="pilcrow">¶</a></p>
+<p id="section-2-6"><strong>Device Agent:</strong> A lightweight agent co-located with or embedded in a network device (router, switch). It manages local Sketch structures and exposes them via a CoAP server interface.<a href="#section-2-6" class="pilcrow">¶</a></p>
+<p id="section-2-7"><strong>Sketch:</strong> A probabilistic data structure that provides a compact, bounded-error summary of a multiset or set of network observations. Examples include Count-Min Sketch, HyperLogLog, DDSketch, MinHash, and Bloom Filter.<a href="#section-2-7" class="pilcrow">¶</a></p>
+<p id="section-2-8"><strong>Sketch Node:</strong> A network device or software component that maintains one or more Sketch structures updated from the local data plane (e.g., via P4, eBPF, or software sampling).<a href="#section-2-8" class="pilcrow">¶</a></p>
+<p id="section-2-9"><strong>Sketch Merge:</strong> The operation of combining two Sketch structures of the same type into a single structure whose estimates reflect the union of the underlying observation sets.<a href="#section-2-9" class="pilcrow">¶</a></p>
+<p id="section-2-10"><strong>XOR-Delta:</strong> An incremental transmission scheme in which only the changed cells of a Sketch array are transmitted between synchronization points, computed as the bitwise XOR of the current and baseline Sketch arrays.<a href="#section-2-10" class="pilcrow">¶</a></p>
+<p id="section-2-11"><strong>CoAP:</strong> The Constrained Application Protocol <span>[<a href="#RFC7252" class="cite xref">RFC7252</a>]</span>, a lightweight RESTful protocol operating over UDP with optional reliability via Confirmable (CON) messages.<a href="#section-2-11" class="pilcrow">¶</a></p>
+<p id="section-2-12"><strong>MCP:</strong> The Model Context Protocol <span>[<a href="#MCP" class="cite xref">MCP</a>]</span>, an open protocol that standardizes how applications provide context, tools, and resources to LLM-based agents.<a href="#section-2-12" class="pilcrow">¶</a></p>
+<p id="section-2-13"><strong>A2A:</strong> The Agent-to-Agent protocol <span>[<a href="#A2A" class="cite xref">A2A</a>]</span>, a protocol for task-level communication and coordination between autonomous agents.<a href="#section-2-13" class="pilcrow">¶</a></p>
+<p id="section-2-14"><strong>CON message:</strong> A CoAP Confirmable message that requires an acknowledgment (ACK) from the recipient. Used for reliable delivery.<a href="#section-2-14" class="pilcrow">¶</a></p>
+<p id="section-2-15"><strong>NON message:</strong> A CoAP Non-confirmable message sent without requiring an acknowledgment. Used for high-frequency, loss-tolerant data streams.<a href="#section-2-15" class="pilcrow">¶</a></p>
+<p id="section-2-16"><strong>Observe:</strong> A CoAP extension <span>[<a href="#RFC7641" class="cite xref">RFC7641</a>]</span> that allows a client to register interest in a resource and receive notifications when the resource changes.<a href="#section-2-16" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="problem-statement">
+<section id="section-3">
+      <h2 id="name-problem-statement">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-problem-statement" class="section-name selfRef">Problem Statement</a>
+      </h2>
+<div id="the-reliability-requirement">
+<section id="section-3.1">
+        <h3 id="name-the-reliability-requirement">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-the-reliability-requirement" class="section-name selfRef">The Reliability Requirement</a>
+        </h3>
+<p id="section-3.1-1">Network operations involve consequential actions: changing routing policies, applying ACLs, rate-limiting traffic, rolling back configurations. An agent that issues a mitigation command to a border router and does not receive confirmation of execution cannot know whether the network is protected. Silent failures — commands lost in transit — are operationally dangerous.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-2">The reliability requirement has several dimensions:<a href="#section-3.1-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-3.1">
+            <p id="section-3.1-3.1.1"><strong>Delivery guarantee:</strong> Operational commands <span class="bcp14">MUST</span> be delivered to the target device and acknowledged.<a href="#section-3.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.1-3.2">
+            <p id="section-3.1-3.2.1"><strong>Idempotency:</strong> Retransmitted commands <span class="bcp14">MUST NOT</span> cause duplicate or inconsistent state changes on the device.<a href="#section-3.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.1-3.3">
+            <p id="section-3.1-3.3.1"><strong>Ordering:</strong> Related commands (e.g., a sequence of configuration steps) <span class="bcp14">MUST</span> be executed in the correct order.<a href="#section-3.1-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.1-3.4">
+            <p id="section-3.1-3.4.1"><strong>Failure notification:</strong> When a command cannot be delivered after retransmission, the issuing agent <span class="bcp14">MUST</span> be notified.<a href="#section-3.1-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-3.1-4">Existing approaches that rely on UDP-based telemetry streams without acknowledgment do not satisfy this requirement. TCP-based protocols satisfy it but introduce head-of-line blocking and connection overhead that is problematic for constrained devices and lossy management-plane paths.<a href="#section-3.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="the-efficiency-requirement">
+<section id="section-3.2">
+        <h3 id="name-the-efficiency-requirement">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-the-efficiency-requirement" class="section-name selfRef">The Efficiency Requirement</a>
+        </h3>
+<p id="section-3.2-1">Network state is voluminous. Transmitting raw telemetry between agents at operational timescales is impractical for several reasons:<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.2-2.1">
+            <p id="section-3.2-2.1.1"><strong>Volume:</strong> A single domain may generate terabytes of raw telemetry per day. Agents cannot buffer or transmit this at the latency required for real-time operations.<a href="#section-3.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-2.2">
+            <p id="section-3.2-2.2.1"><strong>Cross-domain privacy:</strong> In multi-operator or multi-AS scenarios, raw flow records cannot be shared across administrative boundaries due to legal, regulatory, and competitive constraints.<a href="#section-3.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-2.3">
+            <p id="section-3.2-2.3.1"><strong>Inference latency:</strong> LLM agents reasoning over gigabytes of raw input incur unacceptable latency. Compact, structured summaries are required.<a href="#section-3.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-2.4">
+            <p id="section-3.2-2.4.1"><strong>Management plane bandwidth:</strong> The management plane of network devices is deliberately rate-limited to protect the control plane. High-volume telemetry export over this plane is not feasible.<a href="#section-3.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-3.2-3">The efficiency requirement demands a state representation that is compact, supports cross-domain sharing without exposing raw data, and can be incrementally updated to avoid full retransmission on every synchronization cycle.<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="the-gap-in-existing-solutions">
+<section id="section-3.3">
+        <h3 id="name-the-gap-in-existing-solutio">
+<a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-the-gap-in-existing-solutio" class="section-name selfRef">The Gap in Existing Solutions</a>
+        </h3>
+<p id="section-3.3-1">No existing protocol simultaneously satisfies the reliability requirement for operational commands, the efficiency requirement for network state dissemination, and the agent-native communication semantics required for LLM-driven NetOps. This three-way gap is the core problem this framework addresses.<a href="#section-3.3-1" class="pilcrow">¶</a></p>
+<p id="section-3.3-2">The reliability-efficiency tension is not resolvable by adjusting parameters of any single existing protocol — it requires a deliberate two-layer design. The agent-native gap requires new bindings between emerging agent protocols (MCP, A2A) and network device interfaces. Both design choices are developed in Sections 5 through 8.<a href="#section-3.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="requirements">
+<section id="section-4">
+      <h2 id="name-requirements">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-requirements" class="section-name selfRef">Requirements</a>
+      </h2>
+<p id="section-4-1">This section defines the requirements that the framework is designed to satisfy. Requirements are stated using the key words defined in Section 2.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<div id="reliable-command-delivery-req-1">
+<section id="section-4.1">
+        <h3 id="name-reliable-command-delivery-r">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-reliable-command-delivery-r" class="section-name selfRef">Reliable Command Delivery (REQ-1)</a>
+        </h3>
+<p id="section-4.1-1">The framework <span class="bcp14">MUST</span> provide a mechanism for delivering operational commands from an agent to a target device or agent with guaranteed delivery and acknowledgment.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-2">The framework <span class="bcp14">MUST</span> support retransmission of unacknowledged commands with configurable backoff.<a href="#section-4.1-2" class="pilcrow">¶</a></p>
+<p id="section-4.1-3">The framework <span class="bcp14">MUST</span> support idempotent command execution, such that a retransmitted command does not cause duplicate state changes on the target.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+<p id="section-4.1-4">The framework <span class="bcp14">MUST</span> notify the sending agent when a command cannot be delivered after the maximum number of retransmission attempts.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="efficient-network-state-representation-req-2">
+<section id="section-4.2">
+        <h3 id="name-efficient-network-state-rep">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-efficient-network-state-rep" class="section-name selfRef">Efficient Network State Representation (REQ-2)</a>
+        </h3>
+<p id="section-4.2-1">The framework <span class="bcp14">MUST</span> support a compact representation of network state that can be exchanged between agents with substantially lower bandwidth than raw telemetry data.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<p id="section-4.2-2">The compact representation <span class="bcp14">MUST</span> provide provable, configurable error bounds (epsilon, delta) on the accuracy of estimates derived from it.<a href="#section-4.2-2" class="pilcrow">¶</a></p>
+<p id="section-4.2-3">The compact representation <span class="bcp14">MUST</span> support merging of instances from multiple sources to produce a combined representation without access to the underlying raw data.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="incremental-state-synchronization-req-3">
+<section id="section-4.3">
+        <h3 id="name-incremental-state-synchroni">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-incremental-state-synchroni" class="section-name selfRef">Incremental State Synchronization (REQ-3)</a>
+        </h3>
+<p id="section-4.3-1">The framework <span class="bcp14">MUST</span> support incremental (delta) transmission of network state updates, such that only changes since the last synchronization point are transmitted.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<p id="section-4.3-2">The incremental transmission mechanism <span class="bcp14">MUST</span> support fallback to full-state transmission when the delta exceeds a configurable threshold or when a gap in the update sequence is detected.<a href="#section-4.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="agent-protocol-integration-req-4">
+<section id="section-4.4">
+        <h3 id="name-agent-protocol-integration-">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-agent-protocol-integration-" class="section-name selfRef">Agent Protocol Integration (REQ-4)</a>
+        </h3>
+<p id="section-4.4-1">The framework <span class="bcp14">MUST</span> define normative bindings between the agent communication primitives of MCP and A2A and the CoAP message types and resource model used by the framework.<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+<p id="section-4.4-2">The bindings <span class="bcp14">MUST</span> cover at minimum: tool invocation (MCP tools/call), resource subscription (MCP resources/subscribe), task submission (A2A tasks/send), and task status subscription (A2A tasks/subscribe).<a href="#section-4.4-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="quantifiable-accuracy-req-5">
+<section id="section-4.5">
+        <h3 id="name-quantifiable-accuracy-req-5">
+<a href="#section-4.5" class="section-number selfRef">4.5. </a><a href="#name-quantifiable-accuracy-req-5" class="section-name selfRef">Quantifiable Accuracy (REQ-5)</a>
+        </h3>
+<p id="section-4.5-1">The framework <span class="bcp14">MUST</span> ensure that the error bounds (epsilon, delta) of Sketch estimates are communicated alongside the estimates themselves, so that agents can incorporate uncertainty into their reasoning and decision-making.<a href="#section-4.5-1" class="pilcrow">¶</a></p>
+<p id="section-4.5-2">The framework <span class="bcp14">SHOULD</span> define how error bounds propagate through Sketch merge operations across multiple domains or devices.<a href="#section-4.5-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="cross-domain-privacy-req-6">
+<section id="section-4.6">
+        <h3 id="name-cross-domain-privacy-req-6">
+<a href="#section-4.6" class="section-number selfRef">4.6. </a><a href="#name-cross-domain-privacy-req-6" class="section-name selfRef">Cross-Domain Privacy (REQ-6)</a>
+        </h3>
+<p id="section-4.6-1">The compact state representation used by the framework <span class="bcp14">MUST NOT</span> require the transmission of raw flow records, raw IP addresses, or other privacy-sensitive data to satisfy cross-domain state sharing requirements.<a href="#section-4.6-1" class="pilcrow">¶</a></p>
+<p id="section-4.6-2">The representation <span class="bcp14">MUST</span> allow agents in different administrative domains to derive useful aggregate estimates without exposing the underlying observations.<a href="#section-4.6-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="incremental-deployability-req-7">
+<section id="section-4.7">
+        <h3 id="name-incremental-deployability-r">
+<a href="#section-4.7" class="section-number selfRef">4.7. </a><a href="#name-incremental-deployability-r" class="section-name selfRef">Incremental Deployability (REQ-7)</a>
+        </h3>
+<p id="section-4.7-1">The framework <span class="bcp14">SHOULD</span> be deployable on existing network infrastructure without requiring hardware upgrades.<a href="#section-4.7-1" class="pilcrow">¶</a></p>
+<p id="section-4.7-2">The framework <span class="bcp14">SHOULD</span> define a software-based implementation path (e.g., using Linux eBPF or user-space sampling) as a fallback to hardware-accelerated implementations (e.g., P4-based data plane Sketch updates), with documented performance trade-offs.<a href="#section-4.7-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="interoperability-with-existing-management-infrastructure-req-8">
+<section id="section-4.8">
+        <h3 id="name-interoperability-with-exist">
+<a href="#section-4.8" class="section-number selfRef">4.8. </a><a href="#name-interoperability-with-exist" class="section-name selfRef">Interoperability with Existing Management Infrastructure (REQ-8)</a>
+        </h3>
+<p id="section-4.8-1">The framework <span class="bcp14">SHOULD</span> be interoperable with existing network management infrastructure, including YANG data models <span>[<a href="#RFC7950" class="cite xref">RFC7950</a>]</span> and NETCONF <span>[<a href="#RFC6241" class="cite xref">RFC6241</a>]</span>.<a href="#section-4.8-1" class="pilcrow">¶</a></p>
+<p id="section-4.8-2">The framework <span class="bcp14">SHOULD</span> define a YANG module for Sketch node configuration and state, allowing Sketch nodes to be managed via existing NETCONF/RESTCONF tooling.<a href="#section-4.8-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="framework-architecture">
+<section id="section-5">
+      <h2 id="name-framework-architecture">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-framework-architecture" class="section-name selfRef">Framework Architecture</a>
+      </h2>
+<div id="overview">
+<section id="section-5.1">
+        <h3 id="name-overview">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-overview" class="section-name selfRef">Overview</a>
+        </h3>
+<p id="section-5.1-1">The framework defines a three-tier agent architecture connected by a two-layer communication stack:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2"><code>
+  ┌──────────────────────────────────────────────┐
+  │         Orchestration Agent (LLM)            │
+  │  Global reasoning · Task dispatch · Decision │
+  └───────────────┬──────────────────────────────┘
+                  │ A2A over CoAP
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+  ┌──────────┐ ┌──────────┐ ...
+  │  Domain  │ │  Domain  │
+  │  Agent   │ │  Agent   │
+  └────┬─────┘ └────┬─────┘
+       │ CoAP       │ CoAP
+  ┌────▼──────────────▼────┐
+  │  Network Devices       │
+  │  (Sketch Nodes)        │
+  └────────────────────────┘
+</code><a href="#section-5.1-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1-3.1">
+            <p id="section-5.1-3.1.1"><strong>Reliable Layer (CoAP):</strong> Carries operational commands, task coordination messages, and large Sketch payloads with guaranteed delivery.<a href="#section-5.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-5.1-3.2">
+            <p id="section-5.1-3.2.1"><strong>Efficiency Layer (Sketch):</strong> Provides the data representation in all network state exchanges. Sketch structures are generated at Sketch Nodes, transmitted via CoAP to Domain Agents, merged at the domain level, and aggregated at the orchestration level.<a href="#section-5.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="agent-roles-and-responsibilities">
+<section id="section-5.2">
+        <h3 id="name-agent-roles-and-responsibil">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-agent-roles-and-responsibil" class="section-name selfRef">Agent Roles and Responsibilities</a>
+        </h3>
+<p id="section-5.2-1"><strong>Orchestration Agent:</strong>
+- Receives NetOps task requests from operators or automated systems.
+- Decomposes tasks into sub-tasks and delegates them to Domain Agents via A2A task messages.
+- Aggregates Sketch summaries from multiple domains to derive global network state estimates.
+- Makes operational decisions based on Sketch-derived estimates and LLM reasoning.
+- Issues operational commands to Domain Agents or Sketch Nodes via CoAP CON messages.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2"><strong>Domain Agent:</strong>
+- Subscribes to Sketch updates from all Sketch Nodes within its domain via CoAP Observe.
+- Maintains a domain-level merged Sketch representing the aggregate state of its domain.
+- Responds to Sketch sharing requests from the Orchestration Agent or peer Domain Agents.
+- Executes sub-tasks assigned by the Orchestration Agent.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2-3"><strong>Device Agent / Sketch Node:</strong>
+- Maintains one or more Sketch structures updated from the local data plane.
+- Exposes Sketch resources via a CoAP server at well-known resource paths.
+- Pushes incremental Sketch updates to subscribed Domain Agents via CoAP Observe NON messages.
+- Receives and executes operational commands delivered via CoAP CON messages.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="communication-relationships">
+<section id="section-5.3">
+        <h3 id="name-communication-relationships">
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-communication-relationships" class="section-name selfRef">Communication Relationships</a>
+        </h3>
+<table class="center" id="table-2">
+          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Relationship</th>
+              <th class="text-left" rowspan="1" colspan="1">Protocol</th>
+              <th class="text-left" rowspan="1" colspan="1">Primary Use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Orchestration Agent ↔ Domain Agent</td>
+              <td class="text-left" rowspan="1" colspan="1">A2A over CoAP</td>
+              <td class="text-left" rowspan="1" colspan="1">Task delegation, Sketch aggregation, decision dissemination</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Domain Agent ↔ Domain Agent</td>
+              <td class="text-left" rowspan="1" colspan="1">A2A over CoAP</td>
+              <td class="text-left" rowspan="1" colspan="1">Cross-domain Sketch sharing, peer coordination</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Domain Agent ↔ Sketch Node</td>
+              <td class="text-left" rowspan="1" colspan="1">CoAP (direct)</td>
+              <td class="text-left" rowspan="1" colspan="1">Sketch subscription, command delivery, status reporting</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+</section>
+</div>
+<div id="coap-based-reliable-communication">
+<section id="section-6">
+      <h2 id="name-coap-based-reliable-communi">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-coap-based-reliable-communi" class="section-name selfRef">CoAP-Based Reliable Communication</a>
+      </h2>
+<div id="coap-profile-for-this-framework">
+<section id="section-6.1">
+        <h3 id="name-coap-profile-for-this-frame">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-coap-profile-for-this-frame" class="section-name selfRef">CoAP Profile for This Framework</a>
+        </h3>
+<p id="section-6.1-1">This framework uses CoAP <span>[<a href="#RFC7252" class="cite xref">RFC7252</a>]</span> as the transport substrate for all agent-to-device and agent-to-agent communication. The following features are used:<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.1-2.1">
+            <p id="section-6.1-2.1.1"><strong>Confirmable (CON) messages</strong> for operational commands, task messages, and large Sketch transfers, with ACK and exponential-backoff retransmission.<a href="#section-6.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.2">
+            <p id="section-6.1-2.2.1"><strong>Non-confirmable (NON) messages</strong> for high-frequency incremental Sketch updates via Observe. Loss-tolerant; a missed update is recovered at the next synchronization cycle.<a href="#section-6.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.3">
+            <p id="section-6.1-2.3.1"><strong>Observe <span>[<a href="#RFC7641" class="cite xref">RFC7641</a>]</span></strong> for Domain Agent subscriptions to device Sketch resources, receiving push notifications when Sketch state changes beyond a configured threshold.<a href="#section-6.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.4">
+            <p id="section-6.1-2.4.1"><strong>Block-Wise Transfer <span>[<a href="#RFC7959" class="cite xref">RFC7959</a>]</span></strong> for Sketch payloads exceeding the maximum CoAP message size.<a href="#section-6.1-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.5">
+            <p id="section-6.1-2.5.1"><strong>CBOR encoding</strong> (Content-Format 60) for all Sketch payloads <span>[<a href="#RFC8949" class="cite xref">RFC8949</a>]</span>, reducing payload size by 30–50% compared to JSON.<a href="#section-6.1-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="coap-resource-tree">
+<section id="section-6.2">
+        <h3 id="name-coap-resource-tree">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-coap-resource-tree" class="section-name selfRef">CoAP Resource Tree</a>
+        </h3>
+<p id="section-6.2-1">Sketch Nodes and Device Agents <span class="bcp14">MUST</span> expose the following CoAP resource tree:<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+<p id="section-6.2-2"><code>
+coap://&lt;device&gt;/
+├── ops/sketch/
+│   ├── ops/sketch/cms        (Count-Min Sketch)
+│   ├── ops/sketch/hll        (HyperLogLog)
+│   ├── ops/sketch/ddsketch   (DDSketch)
+│   └── ops/sketch/minhash    (MinHash / Bloom Filter)
+├── ops/agent/
+│   ├── ops/agent/task        (Receive agent tasks via POST)
+│   └── ops/agent/status      (Report agent status via GET/Observe)
+└── ops/config/
+    ├── ops/config/apply      (Apply configuration via CON POST)
+    └── ops/config/rollback   (Rollback configuration via CON POST)
+</code><a href="#section-6.2-2" class="pilcrow">¶</a></p>
+<p id="section-6.2-3">Devices <span class="bcp14">MUST</span> expose at minimum <code>ops/sketch/cms</code> and <code>ops/sketch/hll</code>.<a href="#section-6.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="reliability-mechanisms">
+<section id="section-6.3">
+        <h3 id="name-reliability-mechanisms">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-reliability-mechanisms" class="section-name selfRef">Reliability Mechanisms</a>
+        </h3>
+<p id="section-6.3-1"><strong>Retransmission:</strong> CON messages not acknowledged within ACK_TIMEOUT (default: 2 seconds per RFC 7252) are retransmitted with exponential backoff up to MAX_RETRANSMIT (default: 4) attempts. After MAX_RETRANSMIT failures, the sending agent <span class="bcp14">MUST</span> be notified of delivery failure.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<p id="section-6.3-2"><strong>Idempotency:</strong> Every CON command message <span class="bcp14">MUST</span> carry a unique Token (4 bytes) and a SequenceID in the payload. Receiving devices <span class="bcp14">MUST</span> maintain an idempotency cache keyed by (Token, SequenceID) with a configurable TTL (default: 300 seconds). Duplicate messages <span class="bcp14">MUST</span> return the cached response without re-executing the command.<a href="#section-6.3-2" class="pilcrow">¶</a></p>
+<p id="section-6.3-3"><strong>Gap detection:</strong> Domain Agents <span class="bcp14">MUST</span> monitor Observe sequence numbers on subscribed Sketch resources. If a gap larger than a configurable threshold (default: 5 missed updates) is detected, the Domain Agent <span class="bcp14">MUST</span> issue a CON GET to retrieve the full current Sketch state and resynchronize the baseline.<a href="#section-6.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="sketch-based-efficient-state-representation">
+<section id="section-7">
+      <h2 id="name-sketch-based-efficient-stat">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-sketch-based-efficient-stat" class="section-name selfRef">Sketch-Based Efficient State Representation</a>
+      </h2>
+<div id="sketch-as-inter-agent-state-currency">
+<section id="section-7.1">
+        <h3 id="name-sketch-as-inter-agent-state">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-sketch-as-inter-agent-state" class="section-name selfRef">Sketch as Inter-Agent State Currency</a>
+        </h3>
+<p id="section-7.1-1">In this framework, Sketch structures serve as the primary representation of network state exchanged between agents. Rather than transmitting raw flow records, routing tables, or interface statistics, agents exchange Sketch summaries — compact structures that answer specific queries about network state with bounded error.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.1-2">A Sketch is not a detection tool or anomaly detector. It is a data representation format — the network state analog of a compressed file format, but one that supports meaningful queries and cross-domain merging. The intelligence — detection, reasoning, and decision-making — resides in the agents that query and interpret Sketch structures.<a href="#section-7.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sketch-type-selection">
+<section id="section-7.2">
+        <h3 id="name-sketch-type-selection">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-sketch-type-selection" class="section-name selfRef">Sketch Type Selection</a>
+        </h3>
+<p id="section-7.2-1">The appropriate Sketch type depends on the nature of the network state being represented and the queries agents need to answer:<a href="#section-7.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-3">
+          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">NetOps Task</th>
+              <th class="text-left" rowspan="1" colspan="1">Query Type</th>
+              <th class="text-left" rowspan="1" colspan="1">Recommended Sketch</th>
+              <th class="text-left" rowspan="1" colspan="1">Key Property Used</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Flow rate analysis</td>
+              <td class="text-left" rowspan="1" colspan="1">"What is the traffic rate from prefix X?"</td>
+              <td class="text-left" rowspan="1" colspan="1">Count-Min Sketch (CMS)</td>
+              <td class="text-left" rowspan="1" colspan="1">Frequency estimation with epsilon-delta bounds</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Source diversity analysis</td>
+              <td class="text-left" rowspan="1" colspan="1">"How many unique source IPs are there?"</td>
+              <td class="text-left" rowspan="1" colspan="1">HyperLogLog (HLL)</td>
+              <td class="text-left" rowspan="1" colspan="1">Cardinality estimation, cross-domain mergeable</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Latency / jitter analysis</td>
+              <td class="text-left" rowspan="1" colspan="1">"What is the p99 latency on path P?"</td>
+              <td class="text-left" rowspan="1" colspan="1">DDSketch</td>
+              <td class="text-left" rowspan="1" colspan="1">Quantile estimation with relative error bounds</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Configuration consistency</td>
+              <td class="text-left" rowspan="1" colspan="1">"Is device A's config consistent with peers?"</td>
+              <td class="text-left" rowspan="1" colspan="1">MinHash</td>
+              <td class="text-left" rowspan="1" colspan="1">Set similarity estimation (Jaccard index)</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Affected flow marking</td>
+              <td class="text-left" rowspan="1" colspan="1">"Is flow F affected by fault X?"</td>
+              <td class="text-left" rowspan="1" colspan="1">Bloom Filter</td>
+              <td class="text-left" rowspan="1" colspan="1">Set membership with configurable false positive rate</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-7.2-3">Sketch parameters <span class="bcp14">SHOULD</span> be configured based on the expected observation cardinality and the desired accuracy level (epsilon, delta).<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="incremental-transmission-xor-delta">
+<section id="section-7.3">
+        <h3 id="name-incremental-transmission-xo">
+<a href="#section-7.3" class="section-number selfRef">7.3. </a><a href="#name-incremental-transmission-xo" class="section-name selfRef">Incremental Transmission: XOR-Delta</a>
+        </h3>
+<p id="section-7.3-1">Sketch structures are fixed-size arrays of counters or registers. Full retransmission at every synchronization interval is wasteful when only a small fraction of cells change. The XOR-Delta scheme provides efficient incremental updates:<a href="#section-7.3-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-7.3-2">
+<li id="section-7.3-2.1">
+            <p id="section-7.3-2.1.1">The Sketch Node maintains the current array <code>S[t]</code> and the baseline <code>S[t0]</code> (state at last synchronization).<a href="#section-7.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.2">
+            <p id="section-7.3-2.2.1">The delta is computed as <code>D = S[t] XOR S[t0]</code>.<a href="#section-7.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.3">
+            <p id="section-7.3-2.3.1">Only the non-zero entries of D are transmitted as <code>(index, value)</code> pairs.<a href="#section-7.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.4">
+            <p id="section-7.3-2.4.1">The receiving agent reconstructs the current Sketch: <code>S[t] = S[t0] XOR D</code>.<a href="#section-7.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.3-2.5">
+            <p id="section-7.3-2.5.1">When the fraction of changed cells exceeds a threshold (default: 20%), or a gap in the Observe sequence is detected, full Sketch retransmission is triggered.<a href="#section-7.3-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-7.3-3">Under typical steady-state conditions, incremental deltas are expected to represent 1–5% of the full Sketch size, reducing management plane bandwidth consumption proportionally.<a href="#section-7.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="error-bound-propagation">
+<section id="section-7.4">
+        <h3 id="name-error-bound-propagation">
+<a href="#section-7.4" class="section-number selfRef">7.4. </a><a href="#name-error-bound-propagation" class="section-name selfRef">Error Bound Propagation</a>
+        </h3>
+<p id="section-7.4-1">When Sketch structures from multiple sources are merged, the error bounds of the merged structure can be computed analytically for most Sketch types. For example, when two Count-Min Sketches with the same dimensions (w, d) and error parameters (epsilon, delta) are merged via element-wise maximum, the merged structure retains the same error parameters.<a href="#section-7.4-1" class="pilcrow">¶</a></p>
+<p id="section-7.4-2">The framework requires that error bound parameters (epsilon, delta) be included in all Sketch messages so that receiving agents can propagate them correctly. Implementations <span class="bcp14">SHOULD</span> validate that Sketch structures being merged have compatible parameters before performing the merge operation.<a href="#section-7.4-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="agent-protocol-bindings">
+<section id="section-8">
+      <h2 id="name-agent-protocol-bindings">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-agent-protocol-bindings" class="section-name selfRef">Agent Protocol Bindings</a>
+      </h2>
+<div id="binding-design-principles">
+<section id="section-8.1">
+        <h3 id="name-binding-design-principles">
+<a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-binding-design-principles" class="section-name selfRef">Binding Design Principles</a>
+        </h3>
+<p id="section-8.1-1">The bindings defined in this section map MCP and A2A semantic primitives onto CoAP methods, message types, and resource paths. The guiding principles are:<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8.1-2.1">
+            <p id="section-8.1-2.1.1"><strong>Reliability follows semantics:</strong> MCP/A2A primitives with operational consequences (state-modifying tool invocations, task submissions) <span class="bcp14">MUST</span> map to CoAP CON messages. Observational primitives (subscriptions, status updates) <span class="bcp14">SHOULD</span> map to CoAP NON with Observe.<a href="#section-8.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-8.1-2.2">
+            <p id="section-8.1-2.2.1"><strong>Encoding efficiency:</strong> All payloads <span class="bcp14">SHOULD</span> use CBOR encoding (Content-Format 60). JSON (Content-Format 50) <span class="bcp14">MAY</span> be used for diagnostic purposes.<a href="#section-8.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-8.1-2.3">
+            <p id="section-8.1-2.3.1"><strong>Path stability:</strong> CoAP resource paths defined in this framework <span class="bcp14">MUST NOT</span> change between protocol versions.<a href="#section-8.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="mcp-over-coap-binding">
+<section id="section-8.2">
+        <h3 id="name-mcp-over-coap-binding">
+<a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-mcp-over-coap-binding" class="section-name selfRef">MCP-over-CoAP Binding</a>
+        </h3>
+<table class="center" id="table-4">
+          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">MCP Primitive</th>
+              <th class="text-left" rowspan="1" colspan="1">CoAP Method</th>
+              <th class="text-left" rowspan="1" colspan="1">Message Type</th>
+              <th class="text-left" rowspan="1" colspan="1">Resource Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tools/list</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>/ops/mcp/tools</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tools/call</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">POST</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>/ops/mcp/tools/call</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>resources/read</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>/ops/mcp/resources/{name}</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>resources/subscribe</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET + Observe</td>
+              <td class="text-left" rowspan="1" colspan="1">CON (register) / NON (notify)</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>/ops/sketch/{type}</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>resources/unsubscribe</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">RST</td>
+              <td class="text-left" rowspan="1" colspan="1">—</td>
+              <td class="text-left" rowspan="1" colspan="1">CoAP RST to cancel Observe</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>prompts/get</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>/ops/mcp/prompts/{name}</code>
+</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-8.2-2">For <code>tools/call</code>, the MCP JSON-RPC 2.0 request body is carried as the CoAP payload. The CoAP Token field serves as the correlation identifier and <span class="bcp14">MUST</span> be unique per outstanding request.<a href="#section-8.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="a2a-over-coap-binding">
+<section id="section-8.3">
+        <h3 id="name-a2a-over-coap-binding">
+<a href="#section-8.3" class="section-number selfRef">8.3. </a><a href="#name-a2a-over-coap-binding" class="section-name selfRef">A2A-over-CoAP Binding</a>
+        </h3>
+<table class="center" id="table-5">
+          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">A2A Primitive</th>
+              <th class="text-left" rowspan="1" colspan="1">CoAP Method</th>
+              <th class="text-left" rowspan="1" colspan="1">Message Type</th>
+              <th class="text-left" rowspan="1" colspan="1">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tasks/send</code> (sync)</td>
+              <td class="text-left" rowspan="1" colspan="1">POST</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">Response carries task result directly</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tasks/send</code> (async)</td>
+              <td class="text-left" rowspan="1" colspan="1">POST</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">Response is 2.31 Continue; task ID in Location-Path</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tasks/get</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">Resource path: <code>/a2a/tasks/{task-id}</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tasks/cancel</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">DELETE</td>
+              <td class="text-left" rowspan="1" colspan="1">CON</td>
+              <td class="text-left" rowspan="1" colspan="1">Resource path: <code>/a2a/tasks/{task-id}</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>tasks/subscribe</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">GET + Observe</td>
+              <td class="text-left" rowspan="1" colspan="1">CON (register) / NON (notify)</td>
+              <td class="text-left" rowspan="1" colspan="1">Replaces HTTP SSE for task status streaming</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-8.3-2">For asynchronous tasks (the common case for complex NetOps tasks such as fault localization), the interaction proceeds as follows:<a href="#section-8.3-2" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-8.3-3">
+<li id="section-8.3-3.1">
+            <p id="section-8.3-3.1.1">The initiating agent sends <code>tasks/send</code> via CON POST and receives a 2.31 Continue response with the task ID.<a href="#section-8.3-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-8.3-3.2">
+            <p id="section-8.3-3.2.1">The initiating agent registers an Observe subscription on the task resource.<a href="#section-8.3-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-8.3-3.3">
+            <p id="section-8.3-3.3.1">The executing agent sends NON Observe notifications as the task progresses; the final notification carries the task result artifacts.<a href="#section-8.3-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-8.3-3.4">
+            <p id="section-8.3-3.4.1">The initiating agent cancels the Observe subscription by sending a CoAP RST.<a href="#section-8.3-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+<div id="agentcard-coap-extensions">
+<section id="section-8.4">
+        <h3 id="name-agentcard-coap-extensions">
+<a href="#section-8.4" class="section-number selfRef">8.4. </a><a href="#name-agentcard-coap-extensions" class="section-name selfRef">AgentCard CoAP Extensions</a>
+        </h3>
+<p id="section-8.4-1">Agents supporting this framework <span class="bcp14">MUST</span> include the following additional fields in their A2A AgentCard:<a href="#section-8.4-1" class="pilcrow">¶</a></p>
+<p id="section-8.4-2"><code>json
+{
+  "coap_extensions": {
+    "endpoint": "coap://&lt;host&gt;[:&lt;port&gt;]",
+    "dtls_required": true,
+    "observe_supported": true,
+    "cbor_encoding": true,
+    "max_payload_bytes": 1024,
+    "block_transfer": true,
+    "sketch_types": ["cms", "hll", "ddsketch", "minhash"]
+  }
+}
+</code><a href="#section-8.4-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="use-cases">
+<section id="section-9">
+      <h2 id="name-use-cases">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-use-cases" class="section-name selfRef">Use Cases</a>
+      </h2>
+<div id="use-case-1-ddos-detection-and-mitigation">
+<section id="section-9.1">
+        <h3 id="name-use-case-1-ddos-detection-a">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-use-case-1-ddos-detection-a" class="section-name selfRef">Use Case 1: DDoS Detection and Mitigation</a>
+        </h3>
+<p id="section-9.1-1"><strong>Scenario:</strong> A volumetric DDoS attack is directed at a destination prefix within AS-1. The attack traffic originates from a large botnet distributed across multiple ASes.<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<p id="section-9.1-2"><strong>Participating entities:</strong> Border routers in AS-1 (Sketch Nodes), Domain Agent for AS-1, peer Domain Agents for AS-2 and AS-3, Orchestration Agent.<a href="#section-9.1-2" class="pilcrow">¶</a></p>
+<p id="section-9.1-3"><strong>Sketch usage:</strong> Border routers maintain Count-Min Sketch structures updated by eBPF programs on the data plane, tracking per-source-prefix packet rates. Each Domain Agent maintains a HyperLogLog to estimate the cardinality of unique source IP addresses across its domain.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
+<p id="section-9.1-4"><strong>Protocol flow:</strong><a href="#section-9.1-4" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-9.1-5">
+<li id="section-9.1-5.1">
+            <p id="section-9.1-5.1.1">Domain Agent AS-1 receives CMS incremental updates (XOR-Delta, NON Observe) from border routers. It queries the merged CMS and detects that traffic from source prefix 203.0.113.0/24 has exceeded a configured threshold.<a href="#section-9.1-5.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.1-5.2">
+            <p id="section-9.1-5.2.1">Domain Agent AS-1 sends an A2A <code>tasks/send</code> (DDOS_SUSPECT) message via CON POST to the Orchestration Agent, attaching its domain HLL (64 bytes) as a task artifact.<a href="#section-9.1-5.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.1-5.3">
+            <p id="section-9.1-5.3.1">The Orchestration Agent sends A2A <code>SKETCH_SYNC_REQUEST</code> tasks to Domain Agents for AS-2 and AS-3, requesting their HLL Sketches.<a href="#section-9.1-5.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.1-5.4">
+            <p id="section-9.1-5.4.1">The Orchestration Agent merges the three HLLs to estimate the total unique source IPs across all domains. A cardinality above 10^5 indicates a distributed botnet; below 100 suggests a single-source amplification attack requiring a different response.<a href="#section-9.1-5.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.1-5.5">
+            <p id="section-9.1-5.5.1">The Orchestration Agent determines the appropriate mitigation action (e.g., FlowSpec <span>[<a href="#RFC8955" class="cite xref">RFC8955</a>]</span> rate-limit rule) and delivers it to border routers in AS-1 via CON POST to <code>/ops/config/apply</code>. CON guarantees delivery; idempotency ensures retransmission does not cause duplicate ACL entries.<a href="#section-9.1-5.5.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-9.1-5.6">
+            <p id="section-9.1-5.6.1">Routers acknowledge application (2.04 Changed). Domain Agent AS-1 continues pushing CMS deltas; the Orchestration Agent monitors whether traffic normalizes and issues a CON POST to remove the rule when the attack subsides.<a href="#section-9.1-5.6.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-9.1-6"><strong>Requirements addressed:</strong> REQ-1 (reliable mitigation delivery), REQ-2 (HLL/CMS compact representation), REQ-6 (cross-domain sharing without raw IP exposure).<a href="#section-9.1-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="use-case-2-multi-domain-fault-localization">
+<section id="section-9.2">
+        <h3 id="name-use-case-2-multi-domain-fau">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-use-case-2-multi-domain-fau" class="section-name selfRef">Use Case 2: Multi-Domain Fault Localization</a>
+        </h3>
+<p id="section-9.2-1"><strong>Scenario:</strong> Users in AS-1 report packet loss to a destination in AS-3. The fault may lie in any of the transit ASes.<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+<p id="section-9.2-2"><strong>Protocol flow:</strong> Domain Agents for each AS query their DDSketch structures tracking per-path latency and loss distributions, and share merged DDSketches via A2A tasks. The Orchestration Agent compares per-hop quantile estimates to identify the AS where latency or loss deviates from baseline, then queries the relevant Domain Agent for Bloom Filter data marking affected flows to narrow down the faulty link.<a href="#section-9.2-2" class="pilcrow">¶</a></p>
+<p id="section-9.2-3"><strong>Requirements addressed:</strong> REQ-2, REQ-3, REQ-4 (async A2A task binding), REQ-6.<a href="#section-9.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="use-case-3-configuration-consistency-verification">
+<section id="section-9.3">
+        <h3 id="name-use-case-3-configuration-co">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-use-case-3-configuration-co" class="section-name selfRef">Use Case 3: Configuration Consistency Verification</a>
+        </h3>
+<p id="section-9.3-1"><strong>Scenario:</strong> A network-wide audit is required to verify that all border routers are running consistent BGP policy configurations.<a href="#section-9.3-1" class="pilcrow">¶</a></p>
+<p id="section-9.3-2"><strong>Protocol flow:</strong> The Orchestration Agent requests MinHash Sketches from all Domain Agents. Each Domain Agent computes MinHash structures representing the set of active configuration items on its devices. The Orchestration Agent computes pairwise Jaccard similarity estimates to identify devices whose configurations have diverged. Divergent devices are flagged, and corrective configurations are pushed via CON POST.<a href="#section-9.3-2" class="pilcrow">¶</a></p>
+<p id="section-9.3-3"><strong>Requirements addressed:</strong> REQ-1, REQ-2, REQ-5 (MinHash similarity bounds).<a href="#section-9.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="use-case-4-traffic-engineering-optimization">
+<section id="section-9.4">
+        <h3 id="name-use-case-4-traffic-engineer">
+<a href="#section-9.4" class="section-number selfRef">9.4. </a><a href="#name-use-case-4-traffic-engineer" class="section-name selfRef">Use Case 4: Traffic Engineering Optimization</a>
+        </h3>
+<p id="section-9.4-1"><strong>Scenario:</strong> The Orchestration Agent needs to optimize inter-domain traffic routing based on current load and latency conditions.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
+<p id="section-9.4-2"><strong>Protocol flow:</strong> Domain Agents continuously aggregate per-flow CMS structures from their devices into domain-level traffic matrices. DDSketch structures capture latency distributions on inter-domain links. The Orchestration Agent periodically collects these structures via A2A tasks (using Block-Wise Transfer for large matrices), constructs a compressed global traffic matrix, and uses LLM reasoning to generate updated routing policy recommendations. Approved policies are pushed via CON POST.<a href="#section-9.4-2" class="pilcrow">¶</a></p>
+<p id="section-9.4-3"><strong>Requirements addressed:</strong> REQ-1, REQ-2, REQ-3, REQ-7.<a href="#section-9.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="deployment-considerations">
+<section id="section-10">
+      <h2 id="name-deployment-considerations">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-deployment-considerations" class="section-name selfRef">Deployment Considerations</a>
+      </h2>
+<div id="incremental-deployment-path">
+<section id="section-10.1">
+        <h3 id="name-incremental-deployment-path">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-incremental-deployment-path" class="section-name selfRef">Incremental Deployment Path</a>
+        </h3>
+<p id="section-10.1-1">The framework is designed for incremental deployment without simultaneous upgrades across all devices:<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+<p id="section-10.1-2"><strong>Phase 1 — Software-based Sketch:</strong> Sketch structures are maintained by user-space or eBPF programs on existing device CPUs. CoAP servers run as software daemons. No hardware changes required; deployable immediately on Linux-based equipment (REQ-7).<a href="#section-10.1-2" class="pilcrow">¶</a></p>
+<p id="section-10.1-3"><strong>Phase 2 — eBPF-accelerated Sketch:</strong> eBPF XDP programs update Sketch structures at several million packets per second on commodity NICs, providing near-line-rate collection for high-traffic edge devices without programmable forwarding hardware.<a href="#section-10.1-3" class="pilcrow">¶</a></p>
+<p id="section-10.1-4"><strong>Phase 3 — P4-based hardware Sketch:</strong> On P4-programmable forwarding hardware, Sketch updates occur at full line rate (100 Gbps and beyond) entirely within the data plane. P4 programs export Sketch deltas to the device's CoAP server process for transmission to Domain Agents.<a href="#section-10.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="yang-model-integration">
+<section id="section-10.2">
+        <h3 id="name-yang-model-integration">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-yang-model-integration" class="section-name selfRef">YANG Model Integration</a>
+        </h3>
+<p id="section-10.2-1">A companion document defines a YANG module <code>ietf-sketch-node</code> modeling Sketch type configuration, Sketch state (current values, timestamps, error bounds), CoAP server configuration, and subscription management. This allows operators to configure and monitor Sketch Nodes using existing NETCONF/RESTCONF tooling (REQ-8).<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sketch-parameter-selection-guidelines">
+<section id="section-10.3">
+        <h3 id="name-sketch-parameter-selection-">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-sketch-parameter-selection-" class="section-name selfRef">Sketch Parameter Selection Guidelines</a>
+        </h3>
+<ul class="normal">
+<li class="normal" id="section-10.3-1.1">
+            <p id="section-10.3-1.1.1"><strong>Count-Min Sketch:</strong> Set width <code>w = ceil(e / epsilon)</code> and depth <code>d = ceil(ln(1/delta))</code> where epsilon is the desired maximum relative frequency error and delta is the desired failure probability.<a href="#section-10.3-1.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-10.3-1.2">
+            <p id="section-10.3-1.2.1"><strong>HyperLogLog:</strong> Relative standard error ≈ 1.04 / √m where m = 2^b is the number of registers. For 2% error, use b = 12 (m = 4096), occupying 1.5 KB with 4-bit registers.<a href="#section-10.3-1.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-10.3-1.3">
+            <p id="section-10.3-1.3.1"><strong>DDSketch:</strong> The relative accuracy parameter α (default: 0.01) determines the maximum relative error on quantile estimates.<a href="#section-10.3-1.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-11">
+      <h2 id="name-security-considerations">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<div id="authentication-and-encryption">
+<section id="section-11.1">
+        <h3 id="name-authentication-and-encrypti">
+<a href="#section-11.1" class="section-number selfRef">11.1. </a><a href="#name-authentication-and-encrypti" class="section-name selfRef">Authentication and Encryption</a>
+        </h3>
+<p id="section-11.1-1">All CoAP communication <span class="bcp14">MUST</span> be protected by DTLS 1.3 <span>[<a href="#RFC9147" class="cite xref">RFC9147</a>]</span> when operating over untrusted networks:<a href="#section-11.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-11.1-2.1">
+            <p id="section-11.1-2.1.1"><strong>Certificate mode:</strong> Used for agent-to-agent communication. Each agent presents an X.509 certificate whose Subject or SAN field identifies its CoAP URI. Certificates are issued by a management-plane PKI.<a href="#section-11.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-11.1-2.2">
+            <p id="section-11.1-2.2.1"><strong>Pre-shared key (PSK) mode:</strong> Used for agent-to-device communication where devices have limited computational resources. PSK values are provisioned out-of-band and can be rotated by the Orchestration Agent via CON POST.<a href="#section-11.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="sketch-integrity">
+<section id="section-11.2">
+        <h3 id="name-sketch-integrity">
+<a href="#section-11.2" class="section-number selfRef">11.2. </a><a href="#name-sketch-integrity" class="section-name selfRef">Sketch Integrity</a>
+        </h3>
+<p id="section-11.2-1">Sketch structures transmitted between agents and devices could be tampered with to influence agent decision-making. DTLS encryption prevents eavesdropping; DTLS authentication prevents impersonation. Additionally, each Sketch message <span class="bcp14">SHOULD</span> carry an HMAC-SHA256 integrity tag over the payload, keyed with a secret negotiated during the DTLS handshake.<a href="#section-11.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sketch-poisoning">
+<section id="section-11.3">
+        <h3 id="name-sketch-poisoning">
+<a href="#section-11.3" class="section-number selfRef">11.3. </a><a href="#name-sketch-poisoning" class="section-name selfRef">Sketch Poisoning</a>
+        </h3>
+<p id="section-11.3-1">An adversary with write access to a Sketch Node could manipulate Sketch structures to cause incorrect agent decisions. Defenses include:<a href="#section-11.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-11.3-2.1">
+            <p id="section-11.3-2.1.1">Using keyed hash functions (e.g., SipHash <span>[<a href="#SIPHASH" class="cite xref">SIPHASH</a>]</span>) for Sketch index computation, preventing predictable collision attacks.<a href="#section-11.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-11.3-2.2">
+            <p id="section-11.3-2.2.1">Cross-validating Sketch estimates from multiple independent Sketch Nodes before acting on them.<a href="#section-11.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-11.3-2.3">
+            <p id="section-11.3-2.3.1">Monitoring for statistically anomalous Sketch patterns (e.g., a single cell accounting for an implausibly large fraction of total counts).<a href="#section-11.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="agent-authorization">
+<section id="section-11.4">
+        <h3 id="name-agent-authorization">
+<a href="#section-11.4" class="section-number selfRef">11.4. </a><a href="#name-agent-authorization" class="section-name selfRef">Agent Authorization</a>
+        </h3>
+<p id="section-11.4-1">The framework RECOMMENDS an authorization model in which:<a href="#section-11.4-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-11.4-2.1">
+            <p id="section-11.4-2.1.1">Device Agents accept CON commands only from Domain Agents whose certificates identify them as authorized for the device's domain.<a href="#section-11.4-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-11.4-2.2">
+            <p id="section-11.4-2.2.1">Domain Agents accept Sketch sharing requests only from agents with certificates signed by a trusted management authority.<a href="#section-11.4-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-11.4-2.3">
+            <p id="section-11.4-2.3.1">Orchestration Agents are constrained to the operational scope defined in their certificates (e.g., AS number, administrative domain).<a href="#section-11.4-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="denial-of-service">
+<section id="section-11.5">
+        <h3 id="name-denial-of-service">
+<a href="#section-11.5" class="section-number selfRef">11.5. </a><a href="#name-denial-of-service" class="section-name selfRef">Denial of Service</a>
+        </h3>
+<p id="section-11.5-1">CoAP servers on network devices are resource-constrained and could be overwhelmed by floods of CON messages. Implementations <span class="bcp14">SHOULD</span> enforce per-source rate limits on incoming CON messages and <span class="bcp14">SHOULD</span> use CoAP's built-in congestion control mechanisms (ACK_TIMEOUT, NSTART).<a href="#section-11.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="iana-considerations">
+<section id="section-12">
+      <h2 id="name-iana-considerations">
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<p id="section-12-1">This document has no IANA actions.<a href="#section-12-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-13">
+      <h2 id="name-references">
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-13.1">
+        <h3 id="name-normative-references">
+<a href="#section-13.1" class="section-number selfRef">13.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7252">[RFC7252]</dt>
+        <dd>
+<span class="refAuthor">Shelby, Z.</span>, <span class="refAuthor">Hartke, K.</span>, and <span class="refAuthor">C. Bormann</span>, <span class="refTitle">"The Constrained Application Protocol (CoAP)"</span>, <span class="seriesInfo">RFC 7252</span>, <span class="seriesInfo">DOI 10.17487/RFC7252</span>, <time datetime="2014-06" class="refDate">June 2014</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7252">https://www.rfc-editor.org/rfc/rfc7252</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7641">[RFC7641]</dt>
+        <dd>
+<span class="refAuthor">Hartke, K.</span>, <span class="refTitle">"Observing Resources in the Constrained Application Protocol (CoAP)"</span>, <span class="seriesInfo">RFC 7641</span>, <span class="seriesInfo">DOI 10.17487/RFC7641</span>, <time datetime="2015-09" class="refDate">September 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7641">https://www.rfc-editor.org/rfc/rfc7641</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7950">[RFC7950]</dt>
+        <dd>
+<span class="refAuthor">Bjorklund, M., Ed.</span>, <span class="refTitle">"The YANG 1.1 Data Modeling Language"</span>, <span class="seriesInfo">RFC 7950</span>, <span class="seriesInfo">DOI 10.17487/RFC7950</span>, <time datetime="2016-08" class="refDate">August 2016</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7950">https://www.rfc-editor.org/rfc/rfc7950</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7959">[RFC7959]</dt>
+        <dd>
+<span class="refAuthor">Bormann, C.</span> and <span class="refAuthor">Z. Shelby, Ed.</span>, <span class="refTitle">"Block-Wise Transfers in the Constrained Application Protocol (CoAP)"</span>, <span class="seriesInfo">RFC 7959</span>, <span class="seriesInfo">DOI 10.17487/RFC7959</span>, <time datetime="2016-08" class="refDate">August 2016</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7959">https://www.rfc-editor.org/rfc/rfc7959</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+        <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8949">[RFC8949]</dt>
+        <dd>
+<span class="refAuthor">Bormann, C.</span> and <span class="refAuthor">P. Hoffman</span>, <span class="refTitle">"Concise Binary Object Representation (CBOR)"</span>, <span class="seriesInfo">STD 94</span>, <span class="seriesInfo">RFC 8949</span>, <span class="seriesInfo">DOI 10.17487/RFC8949</span>, <time datetime="2020-12" class="refDate">December 2020</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8949">https://www.rfc-editor.org/rfc/rfc8949</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9147">[RFC9147]</dt>
+      <dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refAuthor">Tschofenig, H.</span>, and <span class="refAuthor">N. Modadugu</span>, <span class="refTitle">"The Datagram Transport Layer Security (DTLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 9147</span>, <span class="seriesInfo">DOI 10.17487/RFC9147</span>, <time datetime="2022-04" class="refDate">April 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9147">https://www.rfc-editor.org/rfc/rfc9147</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-13.2">
+        <h3 id="name-informative-references">
+<a href="#section-13.2" class="section-number selfRef">13.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="A2A">[A2A]</dt>
+        <dd>
+<span class="refTitle">"Agent-to-Agent (A2A) Protocol"</span>, <time datetime="2025" class="refDate">2025</time>, <span>&lt;<a href="https://google.github.io/A2A">https://google.github.io/A2A</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="CORMODE">[CORMODE]</dt>
+        <dd>
+<span class="refAuthor">Cormode, G.</span> and <span class="refAuthor">S. Muthukrishnan</span>, <span class="refTitle">"An Improved Data Stream Summary The Count-Min Sketch and its Applications"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="GNMI">[GNMI]</dt>
+        <dd>
+<span class="refTitle">"gRPC Network Management Interface (gNMI)"</span>, <time datetime="2018" class="refDate">2018</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-openconfig-rtgwg-gnmi-spec">https://datatracker.ietf.org/doc/html/draft-openconfig-rtgwg-gnmi-spec</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="MCP">[MCP]</dt>
+        <dd>
+<span class="refTitle">"Model Context Protocol"</span>, <time datetime="2024" class="refDate">2024</time>, <span>&lt;<a href="https://modelcontextprotocol.io">https://modelcontextprotocol.io</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6241">[RFC6241]</dt>
+        <dd>
+<span class="refAuthor">Enns, R.</span>, <span class="refAuthor">Bjorklund, M.</span>, <span class="refAuthor">Schoenwaelder, J.</span>, and <span class="refAuthor">A. Bierman</span>, <span class="refTitle">"Network Configuration Protocol (NETCONF)"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7011">[RFC7011]</dt>
+        <dd>
+<span class="refAuthor">Claise, B.</span>, <span class="refAuthor">Trammell, B.</span>, and <span class="refAuthor">P. Aitken</span>, <span class="refTitle">"Specification of the IP Flow Information Export (IPFIX) Protocol for the Exchange of Flow Information"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8040">[RFC8040]</dt>
+        <dd>
+<span class="refAuthor">Bierman, A.</span>, <span class="refAuthor">Bjorklund, M.</span>, and <span class="refAuthor">K. Watsen</span>, <span class="refTitle">"RESTCONF Protocol"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8955">[RFC8955]</dt>
+        <dd>
+<span class="refAuthor">Loibl, C.</span>, <span class="refAuthor">Hares, S.</span>, <span class="refAuthor">Raszuk, R.</span>, <span class="refAuthor">McPherson, D.</span>, and <span class="refAuthor">M. Bacher</span>, <span class="refTitle">"Dissemination of Flow Specification Rules"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9254">[RFC9254]</dt>
+        <dd>
+<span class="refAuthor">Veillette, M.</span>, <span class="refAuthor">Petrov, I.</span>, <span class="refAuthor">Pelov, A.</span>, <span class="refAuthor">Bormann, C.</span>, and <span class="refAuthor">M. Richardson</span>, <span class="refTitle">"Encoding of Data Modeled with YANG in the Concise Binary Object Representation (CBOR)"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+<dt id="SIPHASH">[SIPHASH]</dt>
+      <dd>
+<span class="refAuthor">Aumasson, J.-P.</span> and <span class="refAuthor">D. J. Bernstein</span>, <span class="refTitle">"SipHash A Fast Short-Input PRF"</span>, <span>n.d.</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-A">
+      <h2 id="name-acknowledgments">
+<a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-A-1">TODO acknowledge.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Yong Cui</span></div>
+<div dir="auto" class="left"><span class="org">Tsinghua University</span></div>
+<div dir="auto" class="left">
+<span class="region">Beijing</span>, <span class="postal-code">100084</span>
+</div>
+<div dir="auto" class="left"><span class="country-name">China</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:cuiyong@tsinghua.edu.cn" class="email">cuiyong@tsinghua.edu.cn</a>
+</div>
+<div class="url">
+<span>URI:</span>
+<a href="http://www.cuiyong.net/" class="url">http://www.cuiyong.net/</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Mingzhe Xing</span></div>
+<div dir="auto" class="left"><span class="org">Zhongguancun Laboratory</span></div>
+<div dir="auto" class="left">
+<span class="region">Beijing</span>, <span class="postal-code">100094</span>
+</div>
+<div dir="auto" class="left"><span class="country-name">China</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:xingmz@zgclab.edu.cn" class="email">xingmz@zgclab.edu.cn</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Lei Zhang</span></div>
+<div dir="auto" class="left"><span class="org">Zhongguancun Laboratory</span></div>
+<div dir="auto" class="left">
+<span class="region">Beijing</span>, <span class="postal-code">100094</span>
+</div>
+<div dir="auto" class="left"><span class="country-name">China</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:zhanglei@zgclab.edu.cn" class="email">zhanglei@zgclab.edu.cn</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
