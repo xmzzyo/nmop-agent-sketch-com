@@ -81,19 +81,12 @@ author:
 
 normative:
   [RFC2119]:
-
   [RFC7252]:
-
   [RFC7641]:
-
   [RFC7950]:
-
   [RFC7959]:
-
   [RFC8174]:
-
   [RFC8949]:
-
   [RFC9147]:
 
 
@@ -106,7 +99,6 @@ informative:
     - name: J. Schoenwaelder
     - name: A. Bierman
     date: 2011-06
-
   RFC7011:
     title: Specification of the IP Flow Information Export (IPFIX) Protocol for the Exchange of Flow Information
     author:
@@ -114,7 +106,6 @@ informative:
     - name: B. Trammell
     - name: P. Aitken
     date: 2013-09
-
   RFC8040:
     title: RESTCONF Protocol
     author:
@@ -122,7 +113,6 @@ informative:
     - name: M. Bjorklund
     - name: K. Watsen
     date: 2017-01
-
   RFC8955:
     title: Dissemination of Flow Specification Rules
     author:
@@ -132,7 +122,6 @@ informative:
     - name: D. McPherson
     - name: M. Bacher
     date: 2020-12
-
   RFC9254:
     title: Encoding of Data Modeled with YANG in the Concise Binary Object Representation (CBOR)
     author:
@@ -142,29 +131,24 @@ informative:
     - name: C. Bormann
     - name: M. Richardson
     date: 2022-07
-
-  mcp:
+  MCP:
     title: Model Context Protocol
     target: https://modelcontextprotocol.io
     date: 2024
-
-  a2a:
+  A2A:
     title: Agent-to-Agent (A2A) Protocol
     target: https://google.github.io/A2A
     date: 2025
-
-  gNMI:
+  GNMI:
     title: gRPC Network Management Interface (gNMI)
     target: https://datatracker.ietf.org/doc/html/draft-openconfig-rtgwg-gnmi-spec
     date: 2018
-
   CORMODE:
     title: An Improved Data Stream Summary The Count-Min Sketch and its Applications
     author:
     - name: G. Cormode
     - name: S. Muthukrishnan
     date: 2005
-
   SIPHASH:
     title: SipHash A Fast Short-Input PRF
     author:
