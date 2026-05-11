@@ -159,14 +159,14 @@ informative:
     date: 2018
 
   CORMODE:
-    title: An Improved Data Stream Summary: The Count-Min Sketch and its Applications
+    title: An Improved Data Stream Summary The Count-Min Sketch and its Applications
     author:
     - name: G. Cormode
     - name: S. Muthukrishnan
     date: 2005
 
   SIPHASH:
-    title: SipHash: A Fast Short-Input PRF
+    title: SipHash A Fast Short-Input PRF
     author:
     - name: J.-P. Aumasson
     - name: D. J. Bernstein
