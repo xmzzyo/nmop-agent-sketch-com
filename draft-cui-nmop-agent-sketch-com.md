@@ -89,7 +89,6 @@ normative:
   [RFC8949]:
   [RFC9147]:
 
-
 informative:
   RFC6241:
     title: Network Configuration Protocol (NETCONF)
@@ -98,21 +97,18 @@ informative:
     - name: M. Bjorklund
     - name: J. Schoenwaelder
     - name: A. Bierman
-    date: 2011-06
   RFC7011:
     title: Specification of the IP Flow Information Export (IPFIX) Protocol for the Exchange of Flow Information
     author:
     - name: B. Claise
     - name: B. Trammell
     - name: P. Aitken
-    date: 2013-09
   RFC8040:
     title: RESTCONF Protocol
     author:
     - name: A. Bierman
     - name: M. Bjorklund
     - name: K. Watsen
-    date: 2017-01
   RFC8955:
     title: Dissemination of Flow Specification Rules
     author:
@@ -121,7 +117,6 @@ informative:
     - name: R. Raszuk
     - name: D. McPherson
     - name: M. Bacher
-    date: 2020-12
   RFC9254:
     title: Encoding of Data Modeled with YANG in the Concise Binary Object Representation (CBOR)
     author:
@@ -130,7 +125,6 @@ informative:
     - name: A. Pelov
     - name: C. Bormann
     - name: M. Richardson
-    date: 2022-07
   MCP:
     title: Model Context Protocol
     target: https://modelcontextprotocol.io
@@ -148,13 +142,11 @@ informative:
     author:
     - name: G. Cormode
     - name: S. Muthukrishnan
-    date: 2005
   SIPHASH:
     title: SipHash A Fast Short-Input PRF
     author:
     - name: J.-P. Aumasson
     - name: D. J. Bernstein
-    date: 2012
 ...
 
 --- abstract
