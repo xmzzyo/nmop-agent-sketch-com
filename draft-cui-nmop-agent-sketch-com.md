@@ -3,7 +3,7 @@ title: "Distributed Sketch and Agent Communication Framework for Network Operati
 abbrev: "agent-sketch-com"
 category: info
 
-docname: draft-cui-nmop-agent-sketch-com-latest
+docname: draft-cui-nmop-agent-sketch-com-00
 submissiontype: IETF  # also: "independent", "editorial", "IAB", or "IRTF"
 number:
 date:
@@ -311,24 +311,23 @@ The framework SHOULD define a YANG module for Sketch node configuration and stat
 
 The framework defines a three-tier agent architecture connected by a two-layer communication stack:
 
-```
-  ┌──────────────────────────────────────────────┐
-  │         Orchestration Agent (LLM)            │
-  │  Global reasoning · Task dispatch · Decision │
-  └───────────────┬──────────────────────────────┘
-                  │ A2A over CoAP
-        ┌─────────┼─────────┐
-        ▼         ▼         ▼
-  ┌──────────┐ ┌──────────┐ ...
-  │  Domain  │ │  Domain  │
-  │  Agent   │ │  Agent   │
-  └────┬─────┘ └────┬─────┘
-       │ CoAP       │ CoAP
-  ┌────▼──────────────▼────┐
-  │  Network Devices       │
-  │  (Sketch Nodes)        │
-  └────────────────────────┘
-```
+    ┌──────────────────────────────────────────────┐
+    │         Orchestration Agent (LLM)            │
+    │  Global reasoning · Task dispatch · Decision │
+    └───────────────┬──────────────────────────────┘
+                    │ A2A over CoAP
+          ┌─────────┼─────────┐
+          v         v         v
+    ┌──────────┐ ┌──────────┐ ...
+    │  Domain  │ │  Domain  │
+    │  Agent   │ │  Agent   │
+    └────┬─────┘ └────┬─────┘
+        │ CoAP       │ CoAP
+    ┌────v──────────────v────┐
+    │  Network Devices       │
+    │  (Sketch Nodes)        │
+    └────────────────────────┘
+    Figure 1: The two-layer communication stack of the framework
 
 - **Reliable Layer (CoAP):** Carries operational commands, task coordination messages, and large Sketch payloads with guaranteed delivery.
 - **Efficiency Layer (Sketch):** Provides the data representation in all network state exchanges. Sketch structures are generated at Sketch Nodes, transmitted via CoAP to Domain Agents, merged at the domain level, and aggregated at the orchestration level.
@@ -380,7 +379,7 @@ This framework uses CoAP [RFC7252] as the transport substrate for all agent-to-d
 
 Sketch Nodes and Device Agents MUST expose the following CoAP resource tree:
 
-```
+~~~ shell
 coap://<device>/
 ├── ops/sketch/
 │   ├── ops/sketch/cms        (Count-Min Sketch)
@@ -393,7 +392,7 @@ coap://<device>/
 └── ops/config/
     ├── ops/config/apply      (Apply configuration via CON POST)
     └── ops/config/rollback   (Rollback configuration via CON POST)
-```
+~~~
 
 Devices MUST expose at minimum `ops/sketch/cms` and `ops/sketch/hll`.
 
@@ -493,7 +492,7 @@ For asynchronous tasks (the common case for complex NetOps tasks such as fault l
 
 Agents supporting this framework MUST include the following additional fields in their A2A AgentCard:
 
-```json
+~~~ json
 {
   "coap_extensions": {
     "endpoint": "coap://<host>[:<port>]",
@@ -505,7 +504,7 @@ Agents supporting this framework MUST include the following additional fields in
     "sketch_types": ["cms", "hll", "ddsketch", "minhash"]
   }
 }
-```
+~~~
 
 
 # Use Cases
