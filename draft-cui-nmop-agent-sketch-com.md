@@ -3,7 +3,7 @@ title: "Distributed Sketch and Agent Communication Framework for Network Operati
 abbrev: "agent-sketch-com"
 category: info
 
-docname: draft-cui-nmop-agent-sketch-com-00
+docname: draft-cui-nmop-agent-sketch-com-latest
 submissiontype: IETF  # also: "independent", "editorial", "IAB", or "IRTF"
 number:
 date:
