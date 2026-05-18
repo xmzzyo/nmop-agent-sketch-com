@@ -141,7 +141,7 @@ This document motivates the need for a new communication framework, defines requ
 
 The operational complexity of modern networks has grown substantially. Networks now span multiple autonomous systems (ASes), administrative domains, and technology layers. Network management tasks — such as detecting and mitigating distributed denial-of-service (DDoS) attacks, localizing faults across domains, verifying configuration consistency, and optimizing traffic engineering — require the timely collection, synthesis, and reasoning over large amounts of network state.
 
-Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations (AI-driven NetOps), in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise. The IETF NMOP working group has been chartered to address emerging challenges in network management and operations, including the integration of AI and automation into the management plane. This document is a contribution to that effort.
+Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations, in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise.
 
 A fundamental architectural insight is that a single LLM agent cannot maintain complete, real-time visibility over a large multi-domain network. The scale of telemetry data, the diversity of device types, and administrative separation between domains each impose hard limits on what any single agent can observe or control. A **multi-agent architecture** is therefore necessary: Orchestration Agents maintain a global view and coordinate responses across domains; Domain Agents aggregate state from devices within their domain; Device Agents (or device-side CoAP servers) maintain local state and execute instructions. This three-tier structure allows each level to operate with appropriate granularity, eliminating the information overload that would result from a flat, fully-connected agent topology.
 
@@ -174,7 +174,7 @@ This document proposes a framework that resolves the reliability-efficiency tens
 
 The two layers are orthogonal and complementary: **CoAP governs how messages are delivered; Sketch governs what they contain.** Neither alone is sufficient — CoAP without Sketch would transmit raw telemetry and fail on efficiency and privacy; Sketch without CoAP would have no mechanism for reliable command delivery. Together, they allow each component to be evolved independently while providing a clean interface that both the network management and AI agent communities can implement.
 
-Beyond CoAP and Sketch, the framework defines normative **bindings between CoAP and MCP/A2A**. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings (Section 8) to enable the NMOP working group to standardize a single, interoperable interface.
+Beyond CoAP and Sketch, the framework defines normative **bindings between CoAP and MCP/A2A**. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings to standardize a single, interoperable interface.
 
 
 # Conventions and Definitions
@@ -322,8 +322,8 @@ The framework defines a three-tier agent architecture connected by a two-layer c
     │  Domain  │ │  Domain  │
     │  Agent   │ │  Agent   │
     └────┬─────┘ └────┬─────┘
-        │ CoAP       │ CoAP
-    ┌────v──────────────v────┐
+         │ CoAP       │ CoAP
+    ┌────v────────────v──────┐
     │  Network Devices       │
     │  (Sketch Nodes)        │
     └────────────────────────┘
