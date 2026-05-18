@@ -329,7 +329,7 @@ The framework defines a three-tier agent architecture connected by a two-layer c
     └────────────────────────┘
     Figure 1: The two-layer communication stack of the framework
 
-- **Reliable Layer (CoAP):** Carries operational commands, task coordination messages, and large Sketch payloads with guaranteed delivery.
+- **Reliable Layer (CoAP):** Carries operational commands, task coordination messages, and large Sketch payloads with guaranteed delivery.()
 - **Efficiency Layer (Sketch):** Provides the data representation in all network state exchanges. Sketch structures are generated at Sketch Nodes, transmitted via CoAP to Domain Agents, merged at the domain level, and aggregated at the orchestration level.
 
 ##  Agent Roles and Responsibilities
