@@ -569,7 +569,7 @@ Table of Contents
 
    *  *Reliable Layer (CoAP):* Carries operational commands, task
       coordination messages, and large Sketch payloads with guaranteed
-      delivery.
+      delivery.()
 
    *  *Efficiency Layer (Sketch):* Provides the data representation in
       all network state exchanges.  Sketch structures are generated at
