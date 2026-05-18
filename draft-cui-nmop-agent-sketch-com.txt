@@ -5,9 +5,9 @@
 Network Management Operations                                     Y. Cui
 Internet-Draft                                       Tsinghua University
 Intended status: Informational                                   M. Xing
-Expires: 13 November 2026                                       L. Zhang
+Expires: 19 November 2026                                       L. Zhang
                                                  Zhongguancun Laboratory
-                                                             12 May 2026
+                                                             18 May 2026
 
 
     Distributed Sketch and Agent Communication Framework for Network
@@ -69,7 +69,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 13 November 2026.
+   This Internet-Draft will expire on 19 November 2026.
 
 Copyright Notice
 
@@ -163,14 +163,10 @@ Table of Contents
    operators and rule-based automation.  These approaches do not scale
    to the demands of large, dynamic, multi-domain networks.  The
    widespread availability of high-quality large language models (LLMs)
-   in the 2020s opened a new paradigm: AI-driven network operations (AI-
-   driven NetOps), in which autonomous LLM-based agents perform complex
-   reasoning tasks — root cause analysis, multi-step remediation
-   planning, policy synthesis — that previously required significant
-   human expertise.  The IETF NMOP working group has been chartered to
-   address emerging challenges in network management and operations,
-   including the integration of AI and automation into the management
-   plane.  This document is a contribution to that effort.
+   in the 2020s opened a new paradigm: AI-driven network operations, in
+   which autonomous LLM-based agents perform complex reasoning tasks —
+   root cause analysis, multi-step remediation planning, policy
+   synthesis — that previously required significant human expertise.
 
    A fundamental architectural insight is that a single LLM agent cannot
    maintain complete, real-time visibility over a large multi-domain
@@ -308,9 +304,8 @@ Table of Contents
    between CoAP and MCP/A2A*. MCP and A2A represent an emerging
    consensus on how AI agents communicate.  Without defined bindings,
    each deployment builds its own translation layer, leading to
-   fragmentation.  This document defines those bindings (Section 8) to
-   enable the NMOP working group to standardize a single, interoperable
-   interface.
+   fragmentation.  This document defines those bindings to standardize a
+   single, interoperable interface.
 
 2.  Conventions and Definitions
 
@@ -565,8 +560,8 @@ Table of Contents
    │  Domain  │ │  Domain  │
    │  Agent   │ │  Agent   │
    └────┬─────┘ └────┬─────┘
-       │ CoAP       │ CoAP
-   ┌────v──────────────v────┐
+        │ CoAP       │ CoAP
+   ┌────v────────────v──────┐
    │  Network Devices       │
    │  (Sketch Nodes)        │
    └────────────────────────┘

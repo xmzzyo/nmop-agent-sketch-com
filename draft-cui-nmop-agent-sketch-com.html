@@ -1054,7 +1054,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Cui, et al.</td>
-<td class="center">Expires 13 November 2026</td>
+<td class="center">Expires 19 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1067,12 +1067,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-cui-nmop-agent-sketch-com-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-12" class="published">12 May 2026</time>
+<time datetime="2026-05-18" class="published">18 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Informational</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-13">13 November 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-19">19 November 2026</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1131,7 +1131,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 13 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 19 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1368,7 +1368,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-context-and-motivation" class="section-name selfRef">Context and Motivation</a>
         </h3>
 <p id="section-1.1-1">The operational complexity of modern networks has grown substantially. Networks now span multiple autonomous systems (ASes), administrative domains, and technology layers. Network management tasks — such as detecting and mitigating distributed denial-of-service (DDoS) attacks, localizing faults across domains, verifying configuration consistency, and optimizing traffic engineering — require the timely collection, synthesis, and reasoning over large amounts of network state.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
-<p id="section-1.1-2">Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations (AI-driven NetOps), in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise. The IETF NMOP working group has been chartered to address emerging challenges in network management and operations, including the integration of AI and automation into the management plane. This document is a contribution to that effort.<a href="#section-1.1-2" class="pilcrow">¶</a></p>
+<p id="section-1.1-2">Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations, in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise.<a href="#section-1.1-2" class="pilcrow">¶</a></p>
 <p id="section-1.1-3">A fundamental architectural insight is that a single LLM agent cannot maintain complete, real-time visibility over a large multi-domain network. The scale of telemetry data, the diversity of device types, and administrative separation between domains each impose hard limits on what any single agent can observe or control. A <strong>multi-agent architecture</strong> is therefore necessary: Orchestration Agents maintain a global view and coordinate responses across domains; Domain Agents aggregate state from devices within their domain; Device Agents (or device-side CoAP servers) maintain local state and execute instructions. This three-tier structure allows each level to operate with appropriate granularity, eliminating the information overload that would result from a flat, fully-connected agent topology.<a href="#section-1.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -1458,7 +1458,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <p id="section-1.3-2"><strong>The Reliable Layer</strong> is based on the Constrained Application Protocol (CoAP) <span>[<a href="#RFC7252" class="cite xref">RFC7252</a>]</span>. CoAP operates over UDP and provides a reliable subset of HTTP semantics with a compact 4-byte binary header. Its Confirmable (CON) message type implements acknowledged delivery with exponential-backoff retransmission, directly satisfying the reliability requirement for operational commands. CoAP's Non-confirmable (NON) messages and Observe extension <span>[<a href="#RFC7641" class="cite xref">RFC7641</a>]</span> provide loss-tolerant push notifications for high-frequency telemetry streams. DTLS <span>[<a href="#RFC9147" class="cite xref">RFC9147</a>]</span> provides mutual authentication and encryption. CoAP is already widely implemented on network equipment and is the basis of existing IETF management standards such as COMI <span>[<a href="#RFC9254" class="cite xref">RFC9254</a>]</span>, giving the framework both the right transport properties and an established deployment footprint.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
 <p id="section-1.3-3"><strong>The Efficiency Layer</strong> is based on distributed probabilistic data structures — collectively referred to in this document as <em>Sketch</em>. Sketches provide compact, fixed-size representations of streaming network observations with provable bounded-error guarantees. A Count-Min Sketch summarizing per-flow traffic rates across a domain may occupy a few hundred kilobytes, compared to gigabytes of raw flow records. A HyperLogLog estimating the number of unique source IPs occupies 64 bytes regardless of how many distinct addresses are observed. Critically, Sketches support a <strong>merge operation</strong>: structures from multiple devices or domains can be combined into a structure representing the union of all observations, without access to the underlying raw data. This mergeability property enables cross-domain state aggregation and cross-domain sharing without exposing privacy-sensitive information.<a href="#section-1.3-3" class="pilcrow">¶</a></p>
 <p id="section-1.3-4">The two layers are orthogonal and complementary: <strong>CoAP governs how messages are delivered; Sketch governs what they contain.</strong> Neither alone is sufficient — CoAP without Sketch would transmit raw telemetry and fail on efficiency and privacy; Sketch without CoAP would have no mechanism for reliable command delivery. Together, they allow each component to be evolved independently while providing a clean interface that both the network management and AI agent communities can implement.<a href="#section-1.3-4" class="pilcrow">¶</a></p>
-<p id="section-1.3-5">Beyond CoAP and Sketch, the framework defines normative <strong>bindings between CoAP and MCP/A2A</strong>. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings (Section 8) to enable the NMOP working group to standardize a single, interoperable interface.<a href="#section-1.3-5" class="pilcrow">¶</a></p>
+<p id="section-1.3-5">Beyond CoAP and Sketch, the framework defines normative <strong>bindings between CoAP and MCP/A2A</strong>. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings to standardize a single, interoperable interface.<a href="#section-1.3-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1659,8 +1659,8 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 │  Domain  │ │  Domain  │
 │  Agent   │ │  Agent   │
 └────┬─────┘ └────┬─────┘
-    │ CoAP       │ CoAP
-┌────v──────────────v────┐
+     │ CoAP       │ CoAP
+┌────v────────────v──────┐
 │  Network Devices       │
 │  (Sketch Nodes)        │
 └────────────────────────┘
