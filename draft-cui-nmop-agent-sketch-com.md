@@ -1,10 +1,10 @@
 ---
-title: "Distributed Sketch and Agent Communication Framework for Network Operations"
-abbrev: "agent-sketch-com"
+title: "Operational Requirements for Network State Exchange in Agent-Assisted Network Operations"
+abbrev: "agent-state-req"
 category: info
 
 docname: draft-cui-nmop-agent-sketch-com-latest
-submissiontype: IETF  # also: "independent", "editorial", "IAB", or "IRTF"
+submissiontype: IETF
 number:
 date:
 consensus: true
@@ -13,6 +13,7 @@ area: "Operations and Management"
 workgroup: "Network Management Operations"
 keyword:
  - Agent
+ - Network State Exchange
  - Sketch
  - Network Management
 venue:
@@ -24,48 +25,44 @@ venue:
   latest: "https://xmzzyo.github.io/nmop-agent-sketch-com/draft-cui-nmop-agent-sketch-com.html"
 
 author:
-- role:  # remove if not true
+- role:
   ins: Y. Cui
   name: Yong Cui
   org: Tsinghua University
   street:
   city:
-  region: Beijing # not always available
+  region: Beijing
   code: 100084
-  country: China # use TLD (except UK) or country name
+  country: China
   phone:
   email: cuiyong@tsinghua.edu.cn
   uri: http://www.cuiyong.net/
-- role: # remove if not true
+- role:
   ins: M. Xing
   name: Mingzhe Xing
   org: Zhongguancun Laboratory
   street:
   city:
-  region: Beijing # not always available
+  region: Beijing
   code: 100094
-  country: China # use TLD (except UK) or country name
+  country: China
   phone:
   email: xingmz@zgclab.edu.cn
-- role: # remove if not true
+- role:
   ins: L. Zhang
   name: Lei Zhang
   org: Zhongguancun Laboratory
   street:
   city:
-  region: Beijing # not always available
+  region: Beijing
   code: 100094
-  country: China # use TLD (except UK) or country name
+  country: China
   phone:
   email: zhanglei@zgclab.edu.cn
 
 normative:
-  RFC7252:
-  RFC7641:
-  RFC7950:
-  RFC7959:
-  RFC8949:
-  RFC9147:
+  RFC2119:
+  RFC8174:
 
 informative:
   RFC6241:
@@ -81,6 +78,7 @@ informative:
     - name: B. Claise
     - name: B. Trammell
     - name: P. Aitken
+  RFC7950:
   RFC8040:
     title: RESTCONF Protocol
     author:
@@ -95,26 +93,16 @@ informative:
     - name: R. Raszuk
     - name: D. McPherson
     - name: M. Bacher
-  RFC9254:
-    title: Encoding of Data Modeled with YANG in the Concise Binary Object Representation (CBOR)
-    author:
-    - name: M. Veillette
-    - name: I. Petrov
-    - name: A. Pelov
-    - name: C. Bormann
-    - name: M. Richardson
-  MCP:
-    title: Model Context Protocol
-    target: https://modelcontextprotocol.io
-    date: 2024
-  A2A:
-    title: Agent-to-Agent (A2A) Protocol
-    target: https://google.github.io/A2A
-    date: 2025
   GNMI:
     title: gRPC Network Management Interface (gNMI)
     target: https://datatracker.ietf.org/doc/html/draft-openconfig-rtgwg-gnmi-spec
     date: 2018
+  I-D.ietf-nmop-network-anomaly-architecture:
+  I-D.ietf-nmop-network-anomaly-lifecycle:
+  I-D.ietf-nmop-network-anomaly-semantics:
+  I-D.ietf-nmop-network-incident-yang:
+  I-D.ietf-nmop-yang-message-broker-integration:
+  I-D.ietf-nmop-message-broker-telemetry-message:
   CORMODE:
     title: An Improved Data Stream Summary The Count-Min Sketch and its Applications
     author:
@@ -128,297 +116,177 @@ informative:
 
 --- abstract
 
-This document describes a framework for efficient and reliable communication among AI-driven agents and between agents and network devices in the context of network operations (NetOps). As large language model (LLM)-based agents are increasingly deployed to automate network management tasks — including fault localization, configuration verification, traffic engineering, and attack mitigation — they must exchange large volumes of network state information across multiple administrative domains. Existing protocols are not designed to jointly satisfy the reliability requirements of operational commands and the efficiency requirements of network state dissemination at scale.
+This document describes operational requirements for exchanging network state in agent-assisted network operations. In this document, an agent-assisted system is any automation or decision-support system that consumes operational state to support tasks such as anomaly triage, incident correlation, configuration verification, traffic engineering analysis, or attack mitigation support. Such a system may use a large language model (LLM), a rule engine, a statistical model, or conventional software.
 
-This document motivates the need for a new communication framework, defines requirements, and proposes an architecture that combines the Constrained Application Protocol (CoAP) for reliable message delivery with distributed probabilistic data structures (Sketch) for compact, mergeable network state representation. Bindings between CoAP and emerging agent protocols (MCP and A2A) are outlined. Representative use cases, including DDoS detection and mitigation, are described to validate the applicability of the framework.
-
+The document focuses on operational problems created by high-volume telemetry, cross-domain state sharing, privacy constraints, approximate state summaries, and auditability of state used by automated workflows. It identifies requirements for compact, scoped, mergeable, bounded-error, incrementally synchronized, and auditable network state artifacts. The document complements existing NMOP work on anomaly detection, incident management, and YANG Push/message broker integration. It does not define a new network management protocol, a new agent communication protocol, or a wire format.
 
 --- middle
 
 # Introduction
 
-##  Context and Motivation
+The operational complexity of modern networks has grown substantially. Networks now span multiple autonomous systems (ASes), administrative domains, and technology layers. Network management tasks such as anomaly triage, incident correlation, fault localization, configuration consistency checking, and traffic engineering analysis require timely collection, synthesis, and interpretation of large amounts of network state.
 
-The operational complexity of modern networks has grown substantially. Networks now span multiple autonomous systems (ASes), administrative domains, and technology layers. Network management tasks — such as detecting and mitigating distributed denial-of-service (DDoS) attacks, localizing faults across domains, verifying configuration consistency, and optimizing traffic engineering — require the timely collection, synthesis, and reasoning over large amounts of network state.
+Operators increasingly use automation and decision-support systems to reduce the time required to diagnose and respond to operational events. Some deployments may include agent-assisted components, including LLM-based agents, to help correlate alerts, summarize evidence, generate hypotheses, or prepare recommendations for human review. These components do not remove the need for existing management systems, telemetry pipelines, operator policy, or human accountability.
 
-Traditional approaches to network operations relied on human operators and rule-based automation. These approaches do not scale to the demands of large, dynamic, multi-domain networks. The widespread availability of high-quality large language models (LLMs) in the 2020s opened a new paradigm: AI-driven network operations, in which autonomous LLM-based agents perform complex reasoning tasks — root cause analysis, multi-step remediation planning, policy synthesis — that previously required significant human expertise.
+Agent-assisted operations introduce a practical state exchange problem. An analysis component may need to compare flow behavior across many routers, estimate the number of affected sources, identify configuration drift, or correlate symptoms across domains. Supplying raw telemetry to each component is often impractical because of data volume, privacy constraints, management-plane limits, and the latency of downstream analysis.
 
-A fundamental architectural insight is that a single LLM agent cannot maintain complete, real-time visibility over a large multi-domain network. The scale of telemetry data, the diversity of device types, and administrative separation between domains each impose hard limits on what any single agent can observe or control. A **multi-agent architecture** is therefore necessary: Orchestration Agents maintain a global view and coordinate responses across domains; Domain Agents aggregate state from devices within their domain; Device Agents (or device-side CoAP servers) maintain local state and execute instructions. This three-tier structure allows each level to operate with appropriate granularity, eliminating the information overload that would result from a flat, fully-connected agent topology.
+This document therefore focuses on requirements for network state artifacts consumed by agent-assisted or automated workflows. These artifacts can be generated downstream of existing telemetry mechanisms, including NETCONF {{RFC6241}}, RESTCONF {{RFC8040}}, YANG data models {{RFC7950}}, IPFIX {{RFC7011}}, gNMI {{GNMI}}, YANG Push/message broker pipelines {{I-D.ietf-nmop-yang-message-broker-integration}}, and telemetry message schemas {{I-D.ietf-nmop-message-broker-telemetry-message}}.
 
-##  The Communication Problem
+## Scope
 
-Deploying cooperating agents in a production network introduces a fundamental communication challenge with two conflicting pressures.
+This document is scoped to the exchange of network state consumed by agent-assisted operational workflows. In this document, "network state" includes telemetry-derived measurements, traffic summaries, topology-related observations, configuration-derived summaries, incident evidence, and other operational facts used to support analysis or recommendations.
 
-The first is a **reliability requirement**. Network operations involve consequential actions: changing routing policies, applying access control lists, rate-limiting traffic, rolling back configurations. These actions must be executed with confirmation. An agent that issues a mitigation command to a border router and receives no confirmation cannot know whether the network is protected. Silent delivery failures are operationally dangerous. Commands must be acknowledged, retransmission must be idempotent, and failures must be reported.
+The requirements apply to systems in which state may be exchanged between devices, collectors, controllers, domain-level automation components, incident management systems, and agent-assisted analysis components. The requirements are independent of whether the consuming component is implemented using an LLM, a rule engine, a statistical model, or a conventional application.
 
-The second is an **efficiency requirement**. The primary information currency between agents is network state — link utilization, flow statistics, routing tables, interface health, configuration parameters — and the volume of this data is enormous. A single edge router may generate millions of flow records per minute; a domain of hundreds of routers generates billions. Agents do not need raw data: they need actionable summaries — answers to questions such as "Which source prefix is sending the most traffic?" or "How many unique source IPs are observed across this domain?" Moreover, in multi-operator or multi-AS scenarios, raw flow records cannot be shared across administrative boundaries due to privacy, legal, and competitive constraints.
+## Non-Goals
 
-Existing protocols do not simultaneously address both requirements. NETCONF/YANG [RFC6241] and gNMI [GNMI] provide reliable, schema-driven management but produce verbose, full-fidelity output not suitable for agent-to-agent state exchange. IPFIX [RFC7011] provides efficient flow export but offers no reliability guarantees or agent-interaction semantics. The Model Context Protocol (MCP) [MCP] and Agent-to-Agent (A2A) protocol [A2A] provide the right agent-native semantics — tool invocation, task delegation, artifact exchange — but are currently defined over HTTP/SSE, which is ill-suited to constrained network device management planes, and define no mechanism for compressing the network state that agents must exchange.
+This document does not define a new network management protocol.
 
-| Protocol           | Reliable Delivery  | Efficient State  | Agent-Native               | Assessment                                    |
-| ------------------ | ------------------ | ---------------- | -------------------------- | --------------------------------------------- |
-| NETCONF/YANG       | Yes                | No (full XML)    | No                         | Too verbose; no agent semantics               |
-| gNMI/gRPC          | Yes                | Partial          | No                         | No summary layer; heavy stack                 |
-| IPFIX/NetFlow      | No                 | Partial          | No                         | Export only; no agent interaction             |
-| MCP (HTTP)         | Partial            | No               | Yes                        | No transport guarantees; no compression       |
-| A2A (HTTP/SSE)     | Partial            | No               | Yes                        | SSE not suitable for device management planes |
-| **This framework** | **Yes (CoAP CON)** | **Yes (Sketch)** | **Yes (MCP/A2A bindings)** | **Addresses both requirements**               |
+This document does not update NETCONF, RESTCONF, IPFIX, CoAP, YANG Push, gNMI, or other existing management and telemetry protocols.
 
-##  Proposed Approach: CoAP and Sketch
+This document does not standardize bindings for any agent communication protocol. Such protocols may be used by particular agent-assisted systems, but the requirements in this document do not depend on them.
 
-This document proposes a framework that resolves the reliability-efficiency tension through a **two-layer communication design**, with each layer addressing one dimension of the problem and the two layers combining cleanly.
+This document does not specify autonomous mitigation behavior. High-impact operational actions, such as configuration changes, filtering rules, route policy changes, or rollback operations, remain subject to the authorization, validation, approval, and audit procedures of the deployed network management environment.
 
-**The Reliable Layer** is based on the Constrained Application Protocol (CoAP) [RFC7252]. CoAP operates over UDP and provides a reliable subset of HTTP semantics with a compact 4-byte binary header. Its Confirmable (CON) message type implements acknowledged delivery with exponential-backoff retransmission, directly satisfying the reliability requirement for operational commands. CoAP's Non-confirmable (NON) messages and Observe extension [RFC7641] provide loss-tolerant push notifications for high-frequency telemetry streams. DTLS [RFC9147] provides mutual authentication and encryption. CoAP is already widely implemented on network equipment and is the basis of existing IETF management standards such as COMI [RFC9254], giving the framework both the right transport properties and an established deployment footprint.
+This document discusses sketch-based summaries as a candidate technique. It does not require the use of sketches in all deployments and does not define a wire format for sketch exchange.
 
-**The Efficiency Layer** is based on distributed probabilistic data structures — collectively referred to in this document as *Sketch*. Sketches provide compact, fixed-size representations of streaming network observations with provable bounded-error guarantees. A Count-Min Sketch summarizing per-flow traffic rates across a domain may occupy a few hundred kilobytes, compared to gigabytes of raw flow records. A HyperLogLog estimating the number of unique source IPs occupies 64 bytes regardless of how many distinct addresses are observed. Critically, Sketches support a **merge operation**: structures from multiple devices or domains can be combined into a structure representing the union of all observations, without access to the underlying raw data. This mergeability property enables cross-domain state aggregation and cross-domain sharing without exposing privacy-sensitive information.
-
-The two layers are orthogonal and complementary: **CoAP governs how messages are delivered; Sketch governs what they contain.** Neither alone is sufficient — CoAP without Sketch would transmit raw telemetry and fail on efficiency and privacy; Sketch without CoAP would have no mechanism for reliable command delivery. Together, they allow each component to be evolved independently while providing a clean interface that both the network management and AI agent communities can implement.
-
-Beyond CoAP and Sketch, the framework defines normative **bindings between CoAP and MCP/A2A**. MCP and A2A represent an emerging consensus on how AI agents communicate. Without defined bindings, each deployment builds its own translation layer, leading to fragmentation. This document defines those bindings to standardize a single, interoperable interface.
-
-
-# Conventions and Definitions
+# Conventions and Terminology
 
 {::boilerplate bcp14-tagged}
 
 The following terms are used throughout this document:
 
-**Agent:** A software entity capable of autonomous reasoning and action in a network management context. An agent may be driven by a large language model (LLM), a rule engine, or a combination of both.
+Agent:
+: A software entity that assists a network management workflow by collecting context, correlating evidence, generating recommendations, or coordinating with other components. An agent may be driven by an LLM, a rule engine, a statistical model, or a combination of methods.
 
-**Orchestration Agent:** A high-level agent responsible for decomposing complex network management tasks, dispatching sub-tasks to Domain Agents, and synthesizing results into operational decisions. Typically LLM-driven.
+State Artifact:
+: A structured representation of network state exchanged between systems. A state artifact can contain raw state, derived state, or a compact summary, together with metadata describing its scope and provenance.
 
-**Domain Agent:** An agent responsible for a specific administrative domain (e.g., an autonomous system or a geographic region). It collects and summarizes network state from devices within its domain and cooperates with other Domain Agents and the Orchestration Agent.
+Sketch:
+: A probabilistic data structure that provides a compact, bounded-error summary of a multiset or set of network observations. Examples include Count-Min Sketch, HyperLogLog, DDSketch, MinHash, and Bloom Filter.
 
-**Device Agent:** A lightweight agent co-located with or embedded in a network device (router, switch). It manages local Sketch structures and exposes them via a CoAP server interface.
-
-**Sketch:** A probabilistic data structure that provides a compact, bounded-error summary of a multiset or set of network observations. Examples include Count-Min Sketch, HyperLogLog, DDSketch, MinHash, and Bloom Filter.
-
-**Sketch Node:** A network device or software component that maintains one or more Sketch structures updated from the local data plane (e.g., via P4, eBPF, or software sampling).
-
-**Sketch Merge:** The operation of combining two Sketch structures of the same type into a single structure whose estimates reflect the union of the underlying observation sets.
-
-**XOR-Delta:** An incremental transmission scheme in which only the changed cells of a Sketch array are transmitted between synchronization points, computed as the bitwise XOR of the current and baseline Sketch arrays.
-
-**CoAP:** The Constrained Application Protocol [RFC7252], a lightweight RESTful protocol operating over UDP with optional reliability via Confirmable (CON) messages.
-
-**MCP:** The Model Context Protocol [MCP], an open protocol that standardizes how applications provide context, tools, and resources to LLM-based agents.
-
-**A2A:** The Agent-to-Agent protocol [A2A], a protocol for task-level communication and coordination between autonomous agents.
-
-**CON message:** A CoAP Confirmable message that requires an acknowledgment (ACK) from the recipient. Used for reliable delivery.
-
-**NON message:** A CoAP Non-confirmable message sent without requiring an acknowledgment. Used for high-frequency, loss-tolerant data streams.
-
-**Observe:** A CoAP extension [RFC7641] that allows a client to register interest in a resource and receive notifications when the resource changes.
-
+Sketch Merge:
+: The operation of combining two Sketch structures of the same type into a single structure whose estimates reflect the union of the underlying observation sets.
 
 # Problem Statement
 
-##  The Reliability Requirement
+Agent-assisted operational workflows may require broad network context across many devices and time windows. For example, incident triage may need recent interface counters, flow records, routing changes, topology information, device health indicators, and configuration differences. Sending raw telemetry to each analysis component can create excessive storage, transport, and processing overhead.
 
-Network operations involve consequential actions: changing routing policies, applying ACLs, rate-limiting traffic, rolling back configurations. An agent that issues a mitigation command to a border router and does not receive confirmation of execution cannot know whether the network is protected. Silent failures — commands lost in transit — are operationally dangerous.
+Operational workflows often need answers to specific questions rather than full raw records. Examples include:
 
-The reliability requirement has several dimensions:
+- Which source prefixes are likely to be heavy hitters during an attack?
+- How many distinct sources are observed across a domain?
+- Which links show latency distributions that differ from a baseline?
+- Which devices have configuration sets that are inconsistent with their peers?
+- Which flows are likely affected by a reported incident?
 
-- **Delivery guarantee:** Operational commands MUST be delivered to the target device and acknowledged.
-- **Idempotency:** Retransmitted commands MUST NOT cause duplicate or inconsistent state changes on the device.
-- **Ordering:** Related commands (e.g., a sequence of configuration steps) MUST be executed in the correct order.
-- **Failure notification:** When a command cannot be delivered after retransmission, the issuing agent MUST be notified.
+Raw telemetry can answer these questions, but it may be unnecessarily expensive to exchange. Conversely, a summary that is too lossy, lacks error metadata, or cannot be audited can mislead an automated workflow. The challenge is to represent state at the right granularity for the operational question.
 
-Existing approaches that rely on UDP-based telemetry streams without acknowledgment do not satisfy this requirement. TCP-based protocols satisfy it but introduce head-of-line blocking and connection overhead that is problematic for constrained devices and lossy management-plane paths.
+Some incidents cross administrative boundaries. Examples include distributed denial-of-service attacks, inter-domain reachability failures, and multi-provider service incidents. In such cases, operators may need to share selected state with peers or with a coordinating system. However, raw flow records, customer identifiers, topology details, and configuration fragments may be sensitive or subject to policy restrictions.
 
-##  The Efficiency Requirement
+Compact or approximate state summaries can reduce data movement, but they introduce uncertainty. If an agent-assisted workflow consumes approximate state without understanding error bounds, time coverage, source scope, or freshness, it may generate incorrect conclusions or overconfident recommendations.
 
-Network state is voluminous. Transmitting raw telemetry between agents at operational timescales is impractical for several reasons:
-
-- **Volume:** A single domain may generate terabytes of raw telemetry per day. Agents cannot buffer or transmit this at the latency required for real-time operations.
-- **Cross-domain privacy:** In multi-operator or multi-AS scenarios, raw flow records cannot be shared across administrative boundaries due to legal, regulatory, and competitive constraints.
-- **Inference latency:** LLM agents reasoning over gigabytes of raw input incur unacceptable latency. Compact, structured summaries are required.
-- **Management plane bandwidth:** The management plane of network devices is deliberately rate-limited to protect the control plane. High-volume telemetry export over this plane is not feasible.
-
-The efficiency requirement demands a state representation that is compact, supports cross-domain sharing without exposing raw data, and can be incrementally updated to avoid full retransmission on every synchronization cycle.
-
-##  The Gap in Existing Solutions
-
-No existing protocol simultaneously satisfies the reliability requirement for operational commands, the efficiency requirement for network state dissemination, and the agent-native communication semantics required for LLM-driven NetOps. This three-way gap is the core problem this framework addresses.
-
-The reliability-efficiency tension is not resolvable by adjusting parameters of any single existing protocol — it requires a deliberate two-layer design. The agent-native gap requires new bindings between emerging agent protocols (MCP, A2A) and network device interfaces. Both design choices are developed in Sections 5 through 8.
-
+Existing telemetry and management mechanisms provide important capabilities, including schema-driven configuration and state access, streaming telemetry, flow export, and message-broker integration. However, deployments that introduce agent-assisted analysis still need guidance on what properties exchanged state artifacts should have so that they are compact, mergeable, bounded in error, privacy-aware, and auditable.
 
 # Requirements
 
-This section defines the requirements that the framework is designed to satisfy. Requirements are stated using the key words defined in Section 2.
+This section defines initial operational requirements for network state exchange in agent-assisted network operations. The list is intended as a starting point for discussion.
 
-##  Reliable Command Delivery (REQ-1)
+## Compact State Representation (REQ-1)
 
-The framework MUST provide a mechanism for delivering operational commands from an agent to a target device or agent with guaranteed delivery and acknowledgment.
+Solutions SHOULD support network state representations that are substantially smaller than the raw telemetry, logs, flow records, or configuration data from which they are derived, when the operational query does not require full-fidelity raw data.
 
-The framework MUST support retransmission of unacknowledged commands with configurable backoff.
+The compact representation MUST preserve enough information to answer the intended operational query within the accuracy, freshness, and confidence requirements of the workflow.
 
-The framework MUST support idempotent command execution, such that a retransmitted command does not cause duplicate state changes on the target.
+## Query and Scope Metadata (REQ-2)
 
-The framework MUST notify the sending agent when a command cannot be delivered after the maximum number of retransmission attempts.
+An exchanged state artifact MUST identify the operational query or query class that it is intended to support.
 
-##  Efficient Network State Representation (REQ-2)
+An exchanged state artifact MUST identify its scope, including the source device set or domain, observation time interval, collection method, sampling policy if any, and relevant aggregation parameters.
 
-The framework MUST support a compact representation of network state that can be exchanged between agents with substantially lower bandwidth than raw telemetry data.
+An exchanged state artifact SHOULD include provenance metadata sufficient for an operator or an incident management system to trace the artifact back to the telemetry source, collector, or generation process. This is aligned with the provenance needs described by telemetry message work in NMOP {{I-D.ietf-nmop-message-broker-telemetry-message}}.
 
-The compact representation MUST provide provable, configurable error bounds (epsilon, delta) on the accuracy of estimates derived from it.
+## Bounded and Reportable Error (REQ-3)
 
-The compact representation MUST support merging of instances from multiple sources to produce a combined representation without access to the underlying raw data.
+If a state artifact is approximate, the artifact MUST include the parameters needed to interpret its error behavior.
 
-##  Incremental State Synchronization (REQ-3)
+For probabilistic summaries, the artifact MUST report the applicable error parameters, such as relative error, false-positive probability, confidence level, or other algorithm-specific bounds.
 
-The framework MUST support incremental (delta) transmission of network state updates, such that only changes since the last synchronization point are transmitted.
+Consumers of approximate state SHOULD treat the error metadata as part of the input to their reasoning and SHOULD expose uncertainty in any generated recommendation, incident report, or operator-facing explanation.
 
-The incremental transmission mechanism MUST support fallback to full-state transmission when the delta exceeds a configurable threshold or when a gap in the update sequence is detected.
+## Mergeability Across Devices and Domains (REQ-4)
 
-##  Agent Protocol Integration (REQ-4)
+Solutions SHOULD support merging of state artifacts from multiple devices, collectors, or administrative domains when the operational query requires aggregate visibility.
 
-The framework MUST define normative bindings between the agent communication primitives of MCP and A2A and the CoAP message types and resource model used by the framework.
+A merge operation MUST preserve or update the scope metadata of the resulting artifact so that the combined device set, domain set, and time interval are explicit.
 
-The bindings MUST cover at minimum: tool invocation (MCP tools/call), resource subscription (MCP resources/subscribe), task submission (A2A tasks/send), and task status subscription (A2A tasks/subscribe).
+When merging approximate artifacts, the resulting artifact MUST include updated error metadata or indicate that the error behavior is unknown.
 
-##  Quantifiable Accuracy (REQ-5)
+## Freshness and Time Alignment (REQ-5)
 
-The framework MUST ensure that the error bounds (epsilon, delta) of Sketch estimates are communicated alongside the estimates themselves, so that agents can incorporate uncertainty into their reasoning and decision-making.
+An exchanged state artifact MUST include timestamp information sufficient to determine its freshness.
 
-The framework SHOULD define how error bounds propagate through Sketch merge operations across multiple domains or devices.
+When a workflow combines artifacts from multiple sources, the system SHOULD make the observation windows visible to the consumer so that time skew and stale inputs can be detected.
 
-##  Cross-Domain Privacy (REQ-6)
+## Incremental Synchronization (REQ-6)
 
-The compact state representation used by the framework MUST NOT require the transmission of raw flow records, raw IP addresses, or other privacy-sensitive data to satisfy cross-domain state sharing requirements.
+Solutions SHOULD support incremental updates when only a subset of the represented state changes between synchronization points.
 
-The representation MUST allow agents in different administrative domains to derive useful aggregate estimates without exposing the underlying observations.
+Solutions MUST provide a way to detect stale, missing, or inconsistent updates when incremental synchronization is used.
 
-##  Incremental Deployability (REQ-7)
+Solutions MUST support full resynchronization when incremental updates are incomplete or when the receiver cannot reconstruct the current state.
 
-The framework SHOULD be deployable on existing network infrastructure without requiring hardware upgrades.
+## Privacy-Preserving Exchange (REQ-7)
 
-The framework SHOULD define a software-based implementation path (e.g., using Linux eBPF or user-space sampling) as a fallback to hardware-accelerated implementations (e.g., P4-based data plane Sketch updates), with documented performance trade-offs.
+Solutions SHOULD support cross-domain state exchange without requiring disclosure of raw flow records, customer identifiers, full topology details, or other sensitive operational data when aggregate state is sufficient.
 
-##  Interoperability with Existing Management Infrastructure (REQ-8)
+Solutions MUST make clear whether a state artifact may still leak sensitive information through keys, labels, repeated queries, low-cardinality sets, or correlations with external data.
 
-The framework SHOULD be interoperable with existing network management infrastructure, including YANG data models [RFC7950] and NETCONF [RFC6241].
+Operators SHOULD be able to apply policy controls to determine which state artifacts may be shared, with whom, and at what granularity.
 
-The framework SHOULD define a YANG module for Sketch node configuration and state, allowing Sketch nodes to be managed via existing NETCONF/RESTCONF tooling.
+## Auditability and Reproducibility (REQ-8)
 
+State artifacts used by agent-assisted workflows SHOULD be logged or referenced in a way that allows later audit of the evidence used by the workflow.
 
+The audit record SHOULD include artifact identifiers, generation parameters, source scope, time interval, software or model version where applicable, and consumer identity.
 
-# Framework Architecture
+When an operator-facing recommendation is generated from approximate state, the recommendation SHOULD identify the input artifacts and their uncertainty metadata.
 
-##  Overview
+## Interoperability with Existing Management Systems (REQ-9)
 
-The framework defines a three-tier agent architecture connected by a two-layer communication stack:
+Solutions SHOULD integrate with existing network management and telemetry systems rather than requiring a parallel data collection infrastructure.
 
-    ┌──────────────────────────────────────────────┐
-    │         Orchestration Agent (LLM)            │
-    │  Global reasoning · Task dispatch · Decision │
-    └───────────────┬──────────────────────────────┘
-                    │ A2A over CoAP
-          ┌─────────┼─────────┐
-          v         v         v
-    ┌──────────┐ ┌──────────┐ ...
-    │  Domain  │ │  Domain  │
-    │  Agent   │ │  Agent   │
-    └────┬─────┘ └────┬─────┘
-         │ CoAP       │ CoAP
-    ┌────v────────────v──────┐
-    │  Network Devices       │
-    │  (Sketch Nodes)        │
-    └────────────────────────┘
-    Figure 1: The two-layer communication stack of the framework
+Solutions SHOULD be able to consume state derived from existing mechanisms such as NETCONF {{RFC6241}}, RESTCONF {{RFC8040}}, YANG-modeled data {{RFC7950}}, IPFIX {{RFC7011}}, message brokers, time-series databases, and controller APIs.
 
-- **Reliable Layer (CoAP):** Carries operational commands, task coordination messages, and large Sketch payloads with guaranteed delivery.()
-- **Efficiency Layer (Sketch):** Provides the data representation in all network state exchanges. Sketch structures are generated at Sketch Nodes, transmitted via CoAP to Domain Agents, merged at the domain level, and aggregated at the orchestration level.
+Compact state artifacts generated downstream of YANG Push/message broker pipelines SHOULD preserve useful source and schema metadata from those pipelines {{I-D.ietf-nmop-yang-message-broker-integration}}.
 
-##  Agent Roles and Responsibilities
+## Separation from Operational Action (REQ-10)
 
-**Orchestration Agent:**
-- Receives NetOps task requests from operators or automated systems.
-- Decomposes tasks into sub-tasks and delegates them to Domain Agents via A2A task messages.
-- Aggregates Sketch summaries from multiple domains to derive global network state estimates.
-- Makes operational decisions based on Sketch-derived estimates and LLM reasoning.
-- Issues operational commands to Domain Agents or Sketch Nodes via CoAP CON messages.
+State exchange mechanisms MUST NOT by themselves imply authorization to perform operational actions.
 
-**Domain Agent:**
-- Subscribes to Sketch updates from all Sketch Nodes within its domain via CoAP Observe.
-- Maintains a domain-level merged Sketch representing the aggregate state of its domain.
-- Responds to Sketch sharing requests from the Orchestration Agent or peer Domain Agents.
-- Executes sub-tasks assigned by the Orchestration Agent.
+High-impact actions that are influenced by exchanged state, such as filtering, routing changes, configuration updates, or rollback operations, MUST remain subject to the authorization, validation, approval, and audit procedures of the deployment.
 
-**Device Agent / Sketch Node:**
-- Maintains one or more Sketch structures updated from the local data plane.
-- Exposes Sketch resources via a CoAP server at well-known resource paths.
-- Pushes incremental Sketch updates to subscribed Domain Agents via CoAP Observe NON messages.
-- Receives and executes operational commands delivered via CoAP CON messages.
+Approximate state SHOULD NOT be the sole basis for unattended high-impact action unless the operator has explicitly defined the applicable policy, risk threshold, validation process, and rollback procedure.
 
-##  Communication Relationships
+# Relationship to NMOP Work
 
-| Relationship                       | Protocol      | Primary Use                                                 |
-| ---------------------------------- | ------------- | ----------------------------------------------------------- |
-| Orchestration Agent ↔ Domain Agent | A2A over CoAP | Task delegation, Sketch aggregation, decision dissemination |
-| Domain Agent ↔ Domain Agent        | A2A over CoAP | Cross-domain Sketch sharing, peer coordination              |
-| Domain Agent ↔ Sketch Node         | CoAP (direct) | Sketch subscription, command delivery, status reporting     |
+This document is intended to complement existing NMOP work, rather than replace it.
 
+The network anomaly architecture {{I-D.ietf-nmop-network-anomaly-architecture}}, anomaly lifecycle {{I-D.ietf-nmop-network-anomaly-lifecycle}}, and anomaly semantics {{I-D.ietf-nmop-network-anomaly-semantics}} describe how operational evidence can be collected, annotated, validated, and used in anomaly detection workflows. The requirements in this document focus on the properties of state artifacts that may feed such workflows.
 
+The network incident YANG model {{I-D.ietf-nmop-network-incident-yang}} provides a structure for incident management. Compact state artifacts can be referenced as incident evidence or diagnostic inputs.
 
-# CoAP-Based Reliable Communication
+The YANG Push/message broker integration work {{I-D.ietf-nmop-yang-message-broker-integration}} and telemetry message model {{I-D.ietf-nmop-message-broker-telemetry-message}} address telemetry transport, schema, and provenance. Compact state artifacts can be generated downstream of such pipelines and should preserve relevant provenance and scope metadata.
 
-##  CoAP Profile for This Framework
+# Example Candidate: Sketch-Based State Summaries
 
-This framework uses CoAP [RFC7252] as the transport substrate for all agent-to-device and agent-to-agent communication. The following features are used:
+Sketch structures are one candidate representation for compact state artifacts exchanged by agent-assisted workflows. Rather than transmitting raw flow records, routing tables, or interface statistics for every query, a deployment can exchange Sketch summaries that answer specific questions about network state with bounded or measurable error.
 
-- **Confirmable (CON) messages** for operational commands, task messages, and large Sketch transfers, with ACK and exponential-backoff retransmission.
-- **Non-confirmable (NON) messages** for high-frequency incremental Sketch updates via Observe. Loss-tolerant; a missed update is recovered at the next synchronization cycle.
-- **Observe [RFC7641]** for Domain Agent subscriptions to device Sketch resources, receiving push notifications when Sketch state changes beyond a configured threshold.
-- **Block-Wise Transfer [RFC7959]** for Sketch payloads exceeding the maximum CoAP message size.
-- **CBOR encoding** (Content-Format 60) for all Sketch payloads [RFC8949], reducing payload size by 30–50% compared to JSON.
-
-##  CoAP Resource Tree
-
-Sketch Nodes and Device Agents MUST expose the following CoAP resource tree:
-
-~~~ shell
-coap://<device>/
-├── ops/sketch/
-│   ├── ops/sketch/cms        (Count-Min Sketch)
-│   ├── ops/sketch/hll        (HyperLogLog)
-│   ├── ops/sketch/ddsketch   (DDSketch)
-│   └── ops/sketch/minhash    (MinHash / Bloom Filter)
-├── ops/agent/
-│   ├── ops/agent/task        (Receive agent tasks via POST)
-│   └── ops/agent/status      (Report agent status via GET/Observe)
-└── ops/config/
-    ├── ops/config/apply      (Apply configuration via CON POST)
-    └── ops/config/rollback   (Rollback configuration via CON POST)
-~~~
-
-Devices MUST expose at minimum `ops/sketch/cms` and `ops/sketch/hll`.
-
-##  Reliability Mechanisms
-
-**Retransmission:** CON messages not acknowledged within ACK_TIMEOUT (default: 2 seconds per RFC 7252) are retransmitted with exponential backoff up to MAX_RETRANSMIT (default: 4) attempts. After MAX_RETRANSMIT failures, the sending agent MUST be notified of delivery failure.
-
-**Idempotency:** Every CON command message MUST carry a unique Token (4 bytes) and a SequenceID in the payload. Receiving devices MUST maintain an idempotency cache keyed by (Token, SequenceID) with a configurable TTL (default: 300 seconds). Duplicate messages MUST return the cached response without re-executing the command.
-
-**Gap detection:** Domain Agents MUST monitor Observe sequence numbers on subscribed Sketch resources. If a gap larger than a configurable threshold (default: 5 missed updates) is detected, the Domain Agent MUST issue a CON GET to retrieve the full current Sketch state and resynchronize the baseline.
-
-
-
-# Sketch-Based Efficient State Representation
-
-##  Sketch as Inter-Agent State Currency
-
-In this framework, Sketch structures serve as the primary representation of network state exchanged between agents. Rather than transmitting raw flow records, routing tables, or interface statistics, agents exchange Sketch summaries — compact structures that answer specific queries about network state with bounded error.
-
-A Sketch is not a detection tool or anomaly detector. It is a data representation format — the network state analog of a compressed file format, but one that supports meaningful queries and cross-domain merging. The intelligence — detection, reasoning, and decision-making — resides in the agents that query and interpret Sketch structures.
-
-##  Sketch Type Selection
+A Sketch is not a detection tool or anomaly detector. It is a candidate summary artifact that may be consumed by operational systems. Its usefulness depends on the operational query, selected parameters, acceptable error bounds, and audit requirements.
 
 The appropriate Sketch type depends on the nature of the network state being represented and the queries agents need to answer:
 
-| NetOps Task               | Query Type                                    | Recommended Sketch     | Key Property Used                                    |
+| Operational Task          | Query Type                                    | Candidate Summary      | Key Property Used                                    |
 | ------------------------- | --------------------------------------------- | ---------------------- | ---------------------------------------------------- |
 | Flow rate analysis        | "What is the traffic rate from prefix X?"     | Count-Min Sketch (CMS) | Frequency estimation with epsilon-delta bounds       |
 | Source diversity analysis | "How many unique source IPs are there?"       | HyperLogLog (HLL)      | Cardinality estimation, cross-domain mergeable       |
@@ -426,200 +294,41 @@ The appropriate Sketch type depends on the nature of the network state being rep
 | Configuration consistency | "Is device A's config consistent with peers?" | MinHash                | Set similarity estimation (Jaccard index)            |
 | Affected flow marking     | "Is flow F affected by fault X?"              | Bloom Filter           | Set membership with configurable false positive rate |
 
-Sketch parameters SHOULD be configured based on the expected observation cardinality and the desired accuracy level (epsilon, delta).
+If Sketches are used, their artifacts need to carry scope, freshness, provenance, and error metadata as described in Section 4.
 
-##  Incremental Transmission: XOR-Delta
+# Initial Use Cases
 
-Sketch structures are fixed-size arrays of counters or registers. Full retransmission at every synchronization interval is wasteful when only a small fraction of cells change. The XOR-Delta scheme provides efficient incremental updates:
+This section lists initial use cases. More detailed operator use cases are expected in future revisions.
 
-1. The Sketch Node maintains the current array `S[t]` and the baseline `S[t0]` (state at last synchronization).
-2. The delta is computed as `D = S[t] XOR S[t0]`.
-3. Only the non-zero entries of D are transmitted as `(index, value)` pairs.
-4. The receiving agent reconstructs the current Sketch: `S[t] = S[t0] XOR D`.
-5. When the fraction of changed cells exceeds a threshold (default: 20%), or a gap in the Observe sequence is detected, full Sketch retransmission is triggered.
+DDoS evidence exchange:
+: A domain can publish a compact heavy-hitter or cardinality summary as evidence for an incident workflow. A peer or coordinating system can use the artifact to assess whether an attack appears distributed without requiring raw flow records. Mitigation, if any, is performed through existing mechanisms such as FlowSpec {{RFC8955}} or local filtering procedures.
 
-Under typical steady-state conditions, incremental deltas are expected to represent 1–5% of the full Sketch size, reducing management plane bandwidth consumption proportionally.
+Multi-domain fault localization:
+: Domains can exchange latency or loss distribution summaries for aligned time windows. A coordinating workflow can identify where behavior deviates from baseline and request additional evidence from the relevant domain.
 
-##  Error Bound Propagation
+Configuration consistency verification:
+: A collector can publish compact configuration-set similarity artifacts. An audit workflow can identify devices that appear inconsistent and hand them to existing configuration management systems for operator review.
 
-When Sketch structures from multiple sources are merged, the error bounds of the merged structure can be computed analytically for most Sketch types. For example, when two Count-Min Sketches with the same dimensions (w, d) and error parameters (epsilon, delta) are merged via element-wise maximum, the merged structure retains the same error parameters.
-
-The framework requires that error bound parameters (epsilon, delta) be included in all Sketch messages so that receiving agents can propagate them correctly. Implementations SHOULD validate that Sketch structures being merged have compatible parameters before performing the merge operation.
-
-
-
-# Agent Protocol Bindings
-
-##  Binding Design Principles
-
-The bindings defined in this section map MCP and A2A semantic primitives onto CoAP methods, message types, and resource paths. The guiding principles are:
-
-- **Reliability follows semantics:** MCP/A2A primitives with operational consequences (state-modifying tool invocations, task submissions) MUST map to CoAP CON messages. Observational primitives (subscriptions, status updates) SHOULD map to CoAP NON with Observe.
-- **Encoding efficiency:** All payloads SHOULD use CBOR encoding (Content-Format 60). JSON (Content-Format 50) MAY be used for diagnostic purposes.
-- **Path stability:** CoAP resource paths defined in this framework MUST NOT change between protocol versions.
-
-##  MCP-over-CoAP Binding
-
-| MCP Primitive           | CoAP Method   | Message Type                  | Resource Path               |
-| ----------------------- | ------------- | ----------------------------- | --------------------------- |
-| `tools/list`            | GET           | CON                           | `/ops/mcp/tools`            |
-| `tools/call`            | POST          | CON                           | `/ops/mcp/tools/call`       |
-| `resources/read`        | GET           | CON                           | `/ops/mcp/resources/{name}` |
-| `resources/subscribe`   | GET + Observe | CON (register) / NON (notify) | `/ops/sketch/{type}`        |
-| `resources/unsubscribe` | RST           | —                             | CoAP RST to cancel Observe  |
-| `prompts/get`           | GET           | CON                           | `/ops/mcp/prompts/{name}`   |
-
-For `tools/call`, the MCP JSON-RPC 2.0 request body is carried as the CoAP payload. The CoAP Token field serves as the correlation identifier and MUST be unique per outstanding request.
-
-##  A2A-over-CoAP Binding
-
-| A2A Primitive        | CoAP Method   | Message Type                  | Notes                                               |
-| -------------------- | ------------- | ----------------------------- | --------------------------------------------------- |
-| `tasks/send` (sync)  | POST          | CON                           | Response carries task result directly               |
-| `tasks/send` (async) | POST          | CON                           | Response is 2.31 Continue; task ID in Location-Path |
-| `tasks/get`          | GET           | CON                           | Resource path: `/a2a/tasks/{task-id}`               |
-| `tasks/cancel`       | DELETE        | CON                           | Resource path: `/a2a/tasks/{task-id}`               |
-| `tasks/subscribe`    | GET + Observe | CON (register) / NON (notify) | Replaces HTTP SSE for task status streaming         |
-
-For asynchronous tasks (the common case for complex NetOps tasks such as fault localization), the interaction proceeds as follows:
-
-1. The initiating agent sends `tasks/send` via CON POST and receives a 2.31 Continue response with the task ID.
-2. The initiating agent registers an Observe subscription on the task resource.
-3. The executing agent sends NON Observe notifications as the task progresses; the final notification carries the task result artifacts.
-4. The initiating agent cancels the Observe subscription by sending a CoAP RST.
-
-##  AgentCard CoAP Extensions
-
-Agents supporting this framework MUST include the following additional fields in their A2A AgentCard:
-
-~~~ json
-{
-  "coap_extensions": {
-    "endpoint": "coap://<host>[:<port>]",
-    "dtls_required": true,
-    "observe_supported": true,
-    "cbor_encoding": true,
-    "max_payload_bytes": 1024,
-    "block_transfer": true,
-    "sketch_types": ["cms", "hll", "ddsketch", "minhash"]
-  }
-}
-~~~
-
-
-# Use Cases
-
-##  Use Case 1: DDoS Detection and Mitigation
-
-**Scenario:** A volumetric DDoS attack is directed at a destination prefix within AS-1. The attack traffic originates from a large botnet distributed across multiple ASes.
-
-**Participating entities:** Border routers in AS-1 (Sketch Nodes), Domain Agent for AS-1, peer Domain Agents for AS-2 and AS-3, Orchestration Agent.
-
-**Sketch usage:** Border routers maintain Count-Min Sketch structures updated by eBPF programs on the data plane, tracking per-source-prefix packet rates. Each Domain Agent maintains a HyperLogLog to estimate the cardinality of unique source IP addresses across its domain.
-
-**Protocol flow:**
-
-1. Domain Agent AS-1 receives CMS incremental updates (XOR-Delta, NON Observe) from border routers. It queries the merged CMS and detects that traffic from source prefix 203.0.113.0/24 has exceeded a configured threshold.
-
-2. Domain Agent AS-1 sends an A2A `tasks/send` (DDOS_SUSPECT) message via CON POST to the Orchestration Agent, attaching its domain HLL (64 bytes) as a task artifact.
-
-3. The Orchestration Agent sends A2A `SKETCH_SYNC_REQUEST` tasks to Domain Agents for AS-2 and AS-3, requesting their HLL Sketches.
-
-4. The Orchestration Agent merges the three HLLs to estimate the total unique source IPs across all domains. A cardinality above 10^5 indicates a distributed botnet; below 100 suggests a single-source amplification attack requiring a different response.
-
-5. The Orchestration Agent determines the appropriate mitigation action (e.g., FlowSpec [RFC8955] rate-limit rule) and delivers it to border routers in AS-1 via CON POST to `/ops/config/apply`. CON guarantees delivery; idempotency ensures retransmission does not cause duplicate ACL entries.
-
-6. Routers acknowledge application (2.04 Changed). Domain Agent AS-1 continues pushing CMS deltas; the Orchestration Agent monitors whether traffic normalizes and issues a CON POST to remove the rule when the attack subsides.
-
-**Requirements addressed:** REQ-1 (reliable mitigation delivery), REQ-2 (HLL/CMS compact representation), REQ-6 (cross-domain sharing without raw IP exposure).
-
-##  Use Case 2: Multi-Domain Fault Localization
-
-**Scenario:** Users in AS-1 report packet loss to a destination in AS-3. The fault may lie in any of the transit ASes.
-
-**Protocol flow:** Domain Agents for each AS query their DDSketch structures tracking per-path latency and loss distributions, and share merged DDSketches via A2A tasks. The Orchestration Agent compares per-hop quantile estimates to identify the AS where latency or loss deviates from baseline, then queries the relevant Domain Agent for Bloom Filter data marking affected flows to narrow down the faulty link.
-
-**Requirements addressed:** REQ-2, REQ-3, REQ-4 (async A2A task binding), REQ-6.
-
-##  Use Case 3: Configuration Consistency Verification
-
-**Scenario:** A network-wide audit is required to verify that all border routers are running consistent BGP policy configurations.
-
-**Protocol flow:** The Orchestration Agent requests MinHash Sketches from all Domain Agents. Each Domain Agent computes MinHash structures representing the set of active configuration items on its devices. The Orchestration Agent computes pairwise Jaccard similarity estimates to identify devices whose configurations have diverged. Divergent devices are flagged, and corrective configurations are pushed via CON POST.
-
-**Requirements addressed:** REQ-1, REQ-2, REQ-5 (MinHash similarity bounds).
-
-##  Use Case 4: Traffic Engineering Optimization
-
-**Scenario:** The Orchestration Agent needs to optimize inter-domain traffic routing based on current load and latency conditions.
-
-**Protocol flow:** Domain Agents continuously aggregate per-flow CMS structures from their devices into domain-level traffic matrices. DDSketch structures capture latency distributions on inter-domain links. The Orchestration Agent periodically collects these structures via A2A tasks (using Block-Wise Transfer for large matrices), constructs a compressed global traffic matrix, and uses LLM reasoning to generate updated routing policy recommendations. Approved policies are pushed via CON POST.
-
-**Requirements addressed:** REQ-1, REQ-2, REQ-3, REQ-7.
-
-
-# Deployment Considerations
-
-##  Incremental Deployment Path
-
-The framework is designed for incremental deployment without simultaneous upgrades across all devices:
-
-**Phase 1 — Software-based Sketch:** Sketch structures are maintained by user-space or eBPF programs on existing device CPUs. CoAP servers run as software daemons. No hardware changes required; deployable immediately on Linux-based equipment (REQ-7).
-
-**Phase 2 — eBPF-accelerated Sketch:** eBPF XDP programs update Sketch structures at several million packets per second on commodity NICs, providing near-line-rate collection for high-traffic edge devices without programmable forwarding hardware.
-
-**Phase 3 — P4-based hardware Sketch:** On P4-programmable forwarding hardware, Sketch updates occur at full line rate (100 Gbps and beyond) entirely within the data plane. P4 programs export Sketch deltas to the device's CoAP server process for transmission to Domain Agents.
-
-##  YANG Model Integration
-
-A companion document defines a YANG module `ietf-sketch-node` modeling Sketch type configuration, Sketch state (current values, timestamps, error bounds), CoAP server configuration, and subscription management. This allows operators to configure and monitor Sketch Nodes using existing NETCONF/RESTCONF tooling (REQ-8).
-
-##  Sketch Parameter Selection Guidelines
-
-- **Count-Min Sketch:** Set width `w = ceil(e / epsilon)` and depth `d = ceil(ln(1/delta))` where epsilon is the desired maximum relative frequency error and delta is the desired failure probability.
-- **HyperLogLog:** Relative standard error ≈ 1.04 / √m where m = 2^b is the number of registers. For 2% error, use b = 12 (m = 4096), occupying 1.5 KB with 4-bit registers.
-- **DDSketch:** The relative accuracy parameter α (default: 0.01) determines the maximum relative error on quantile estimates.
+Traffic engineering analysis:
+: A traffic engineering workflow can consume summarized traffic matrix and latency artifacts to prepare recommendations. Any approved routing or policy change is applied through existing operational procedures.
 
 # Security Considerations
 
+State artifacts exchanged over untrusted networks need authentication, integrity protection, and confidentiality appropriate to the sensitivity of the represented state.
 
-##  Authentication and Encryption
+Credential management should bind a consuming component to an operational role, administrative domain, and permitted state scope.
 
-All CoAP communication MUST be protected by DTLS 1.3 [RFC9147] when operating over untrusted networks:
+Sketch structures or other compact state artifacts could be tampered with to influence agent-assisted analysis. Transport security can prevent eavesdropping and impersonation, but deployments should also consider artifact-level integrity protection where artifacts are stored, forwarded, or consumed asynchronously.
 
-- **Certificate mode:** Used for agent-to-agent communication. Each agent presents an X.509 certificate whose Subject or SAN field identifies its CoAP URI. Certificates are issued by a management-plane PKI.
-- **Pre-shared key (PSK) mode:** Used for agent-to-device communication where devices have limited computational resources. PSK values are provisioned out-of-band and can be rotated by the Orchestration Agent via CON POST.
+An adversary with write access to a summary generation function could manipulate summaries to cause incorrect analysis or recommendations. Defenses include using keyed hash functions such as SipHash {{SIPHASH}} for Sketch index computation, cross-validating estimates from multiple independent sources, and monitoring for statistically anomalous summary patterns.
 
-##  Sketch Integrity
+State generation and exchange functions can be targets for denial-of-service attacks. Implementations should enforce rate limits, quotas, back pressure, and admission control for artifact generation and retrieval.
 
-Sketch structures transmitted between agents and devices could be tampered with to influence agent decision-making. DTLS encryption prevents eavesdropping; DTLS authentication prevents impersonation. Additionally, each Sketch message SHOULD carry an HMAC-SHA256 integrity tag over the payload, keyed with a secret negotiated during the DTLS handshake.
-
-##  Sketch Poisoning
-
-An adversary with write access to a Sketch Node could manipulate Sketch structures to cause incorrect agent decisions. Defenses include:
-
-- Using keyed hash functions (e.g., SipHash [SIPHASH]) for Sketch index computation, preventing predictable collision attacks.
-- Cross-validating Sketch estimates from multiple independent Sketch Nodes before acting on them.
-- Monitoring for statistically anomalous Sketch patterns (e.g., a single cell accounting for an implausibly large fraction of total counts).
-
-## Agent Authorization
-
-The framework RECOMMENDS an authorization model in which:
-
-- Device Agents accept CON commands only from Domain Agents whose certificates identify them as authorized for the device's domain.
-- Domain Agents accept Sketch sharing requests only from agents with certificates signed by a trusted management authority.
-- Orchestration Agents are constrained to the operational scope defined in their certificates (e.g., AS number, administrative domain).
-
-## Denial of Service
-
-CoAP servers on network devices are resource-constrained and could be overwhelmed by floods of CON messages. Implementations SHOULD enforce per-source rate limits on incoming CON messages and SHOULD use CoAP's built-in congestion control mechanisms (ACK_TIMEOUT, NSTART).
-
-
+Approximate state summaries can also leak information through repeated queries, low-cardinality sets, or correlation with external data. Sharing policies need to account for such leakage risks.
 
 # IANA Considerations
 
 This document has no IANA actions.
-
 
 --- back
 
