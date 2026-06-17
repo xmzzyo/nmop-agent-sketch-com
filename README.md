@@ -1,8 +1,8 @@
 <!-- regenerate: on (set to off if you edit this file) -->
 
-# Distributed Sketch and Agent Communication Framework for Network Operations
+# Operational Requirements for Network State Exchange in Agent-Assisted Network Operations
 
-This is the working area for the individual Internet-Draft, "Distributed Sketch and Agent Communication Framework for Network Operations".
+This is the working area for the individual Internet-Draft, "Operational Requirements for Network State Exchange in Agent-Assisted Network Operations".
 
 * [Editor's Copy](https://xmzzyo.github.io/nmop-agent-sketch-com/#go.draft-cui-nmop-agent-sketch-com.html)
 * [Datatracker Page](https://datatracker.ietf.org/doc/draft-cui-nmop-agent-sketch-com)
